@@ -1,0 +1,27 @@
+@import "tailwindcss";
+
+@theme {
+    --font-ui: 'Outfit', 'Segoe UI', sans-serif;
+    --font-sans: 'Outfit', 'Segoe UI', sans-serif;
+    --font-icons: 'Segoe Fluent Icons', 'Segoe MDL2 Assets';
+}
+
+html, body {
+    background: transparent;
+    margin: 0;
+}
+
+/* Text and scrollbar colors of Windows 11, following the system theme */
+html {
+    color: rgb(0 0 0 / 0.9);
+    --scrollbar-thumb: rgb(0 0 0 / 0.45);
+    /* Inherited by every scrollable element */
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+
+@media (prefers-color-scheme: dark) {
+    html {
+        color: #fff;
+        --scrollbar-thumb: rgb(255 255 255 / 0.45);
+    }
+}

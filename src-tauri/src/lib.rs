@@ -1,0 +1,359 @@
+mod app_icon;
+mod background;
+mod clipboard;
+mod copy;
+mod db;
+mod drag_out;
+mod drop;
+mod history;
+mod snap_layouts;
+mod window_icon;
+mod images;
+mod link_preview;
+mod source_app;
+
+use std::sync::Mutex;
+
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
+use tauri::Manager;
+use window_vibrancy::apply_mica;
+
+use db::{Clip, Collection, Db};
+use link_preview::LinkPreview;
+
+#[tauri::command]
+fn list_clips(
+    db: tauri::State<Db>,
+    limit: Option<u32>,
+    collection: Option<i64>,
+    favorites: Option<bool>,
+) -> Result<Vec<Clip>, String> {
+    db::list(&db.0.lock().unwrap(), limit.unwrap_or(500), collection, favorites.unwrap_or(false))
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn search_clips(
+    db: tauri::State<Db>,
+    query: String,
+    limit: Option<u32>,
+    collection: Option<i64>,
+    favorites: Option<bool>,
+) -> Result<Vec<Clip>, String> {
+    db::search(&db.0.lock().unwrap(), &query, limit.unwrap_or(500), collection, favorites.unwrap_or(false))
+        .map_err(|e| e.to_string())
+}
+
+/// Stars or unstars a clip, and returns it updated.
+#[tauri::command]
+fn set_favorite(db: tauri::State<Db>, id: i64, favorite: bool) -> Result<Clip, String> {
+    db::set_favorite(&db.0.lock().unwrap(), id, favorite).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn count_clips(db: tauri::State<Db>) -> Result<i64, String> {
+    db::count(&db.0.lock().unwrap()).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn list_collections(db: tauri::State<Db>) -> Result<Vec<Collection>, String> {
+    db::collections(&db.0.lock().unwrap()).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn create_collection(db: tauri::State<Db>, name: String) -> Result<Collection, String> {
+    let name = collection_name(&name)?;
+    db::create_collection(&db.0.lock().unwrap(), name, clipboard::now_ms()).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn rename_collection(db: tauri::State<Db>, id: i64, name: String) -> Result<(), String> {
+    let name = collection_name(&name)?;
+    db::rename_collection(&db.0.lock().unwrap(), id, name).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn reorder_collections(db: tauri::State<Db>, ids: Vec<i64>) -> Result<(), String> {
+    db::reorder_collections(&mut db.0.lock().unwrap(), &ids).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn delete_collection(db: tauri::State<Db>, id: i64) -> Result<(), String> {
+    db::delete_collection(&db.0.lock().unwrap(), id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn add_to_collection(db: tauri::State<Db>, collection: i64, clip: i64) -> Result<(), String> {
+    db::add_to_collection(&db.0.lock().unwrap(), collection, clip, clipboard::now_ms()).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn reorder_collection(db: tauri::State<Db>, collection: i64, clips: Vec<i64>) -> Result<(), String> {
+    db::reorder_collection(&mut db.0.lock().unwrap(), collection, &clips).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn remove_from_collection(db: tauri::State<Db>, collection: i64, clip: i64) -> Result<(), String> {
+    db::remove_from_collection(&db.0.lock().unwrap(), collection, clip).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn clip_collections(db: tauri::State<Db>, clip: i64) -> Result<Vec<i64>, String> {
+    db::clip_collections(&db.0.lock().unwrap(), clip).map_err(|e| e.to_string())
+}
+
+fn collection_name(name: &str) -> Result<&str, String> {
+    let name = name.trim();
+    if name.is_empty() {
+        return Err("A collection needs a name".into());
+    }
+    Ok(name)
+}
+
+/// Icon of a source app as a PNG data URL, extracted once from its executable then cached.
+/// Async so the extraction runs off the main thread.
+#[tauri::command]
+async fn get_app_icon(db: tauri::State<'_, Db>, path: String) -> Result<Option<String>, String> {
+    {
+        let conn = db.0.lock().unwrap();
+        // Only serve icons of apps that clips were copied from, not arbitrary files
+        if !db::is_source_app(&conn, &path).map_err(|e| e.to_string())? {
+            return Ok(None);
+        }
+        if let Some(png) = db::app_icon(&conn, &path).map_err(|e| e.to_string())? {
+            return Ok(Some(png_data_url(&png)));
+        }
+    }
+
+    let Some(png) = app_icon::extract_png(&path) else {
+        return Ok(None);
+    };
+    db::save_app_icon(&db.0.lock().unwrap(), &path, &png).map_err(|e| e.to_string())?;
+    Ok(Some(png_data_url(&png)))
+}
+
+/// Copies a clip again, ready to paste with Ctrl+V. Async so decoding a large image doesn't block the window.
+#[tauri::command]
+async fn copy_clip(app: tauri::AppHandle, id: i64) -> Result<(), String> {
+    copy::copy(&app, id)
+}
+
+/// Preview of a copied file: its thumbnail or icon, as the Explorer shows it.
+#[derive(serde::Serialize)]
+struct FilePreview {
+    /// PNG data URL, `None` if the file no longer exists
+    image: Option<String>,
+    /// Whether `image` is a thumbnail of the content, rather than the icon of the file type
+    thumbnail: bool,
+}
+
+/// Generated on demand so it follows changes to the file. Async so slow thumbnails
+/// (videos, large pictures) don't block the window.
+#[tauri::command]
+async fn get_file_preview(db: tauri::State<'_, Db>, path: String) -> Result<FilePreview, String> {
+    // Only preview files that were copied, not arbitrary paths
+    if !db::is_copied_file(&db.0.lock().unwrap(), &path).map_err(|e| e.to_string())? {
+        return Err("Not a copied file".into());
+    }
+    let preview = tauri::async_runtime::spawn_blocking(move || {
+        app_icon::file_preview_png(&path, app_icon::THUMBNAIL_SIZE, app_icon::FILE_ICON_SIZE)
+    })
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(match preview {
+        Some((png, thumbnail)) => FilePreview { image: Some(png_data_url(&png)), thumbnail },
+        None => FilePreview { image: None, thumbnail: false },
+    })
+}
+
+/// Drags a copied image or copied files out of the window, to drop them in another app.
+/// Async: the drag runs on the main thread, which a sync command would block.
+#[tauri::command]
+async fn start_drag(app: tauri::AppHandle, window: tauri::Window, id: i64) -> Result<(), String> {
+    drag_out::start(&app, window, id)
+}
+
+/// Opens the Windows 11 Snap Layouts, hovering the maximize button of the custom title bar, and closes
+/// them once the pointer leaves. Async: it waits and watches the pointer, off the main thread.
+#[tauri::command]
+async fn show_snap_layouts(button: snap_layouts::ButtonRect) {
+    snap_layouts::show(button);
+}
+
+/// Text dropped into a collection from another app: added to it, out of the history.
+#[tauri::command]
+fn drop_text(app: tauri::AppHandle, collection: i64, text: String) -> Result<Clip, String> {
+    drop::text(&app, collection, &text)
+}
+
+/// A picture dropped into a collection from a browser (its bytes): added to it, out of the history.
+/// Async: decoding a large picture doesn't block the window.
+#[tauri::command]
+async fn drop_image(app: tauri::AppHandle, collection: i64, bytes: Vec<u8>) -> Result<Clip, String> {
+    drop::image(&app, collection, &bytes)
+}
+
+/// Deletes a clip from the history, and its images from the disk once nothing else uses them.
+#[tauri::command]
+fn delete_clip(app: tauri::AppHandle, db: tauri::State<Db>, id: i64) -> Result<(), String> {
+    history::remove(&app, &db.0.lock().unwrap(), id)
+}
+
+/// Preview (title, description, image) of a copied link, loaded once from the website then cached.
+/// A cached preview older than 7 days comes back with `stale`, to reload with `refresh_link_preview`.
+#[tauri::command]
+async fn get_link_preview(
+    app: tauri::AppHandle,
+    db: tauri::State<'_, Db>,
+    url: String,
+) -> Result<Option<LinkPreview>, String> {
+    let Some(parsed) = link_preview::parse_url(&url) else {
+        return Ok(None);
+    };
+    {
+        let conn = db.0.lock().unwrap();
+        // Only load links that were copied, not arbitrary URLs
+        if !db::is_text_clip(&conn, &url).map_err(|e| e.to_string())? {
+            return Ok(None);
+        }
+        if let Some(mut preview) = db::link_preview(&conn, &url).map_err(|e| e.to_string())? {
+            preview.stale = clipboard::now_ms() - preview.fetched_at > link_preview::MAX_AGE_MS;
+            return Ok(Some(preview));
+        }
+    }
+    load_link_preview(&app, &db, &url, &parsed, None).await
+}
+
+/// Reloads a cached preview from the website. Keeps the cached one if the website can't be reached.
+#[tauri::command]
+async fn refresh_link_preview(
+    app: tauri::AppHandle,
+    db: tauri::State<'_, Db>,
+    url: String,
+) -> Result<Option<LinkPreview>, String> {
+    let Some(parsed) = link_preview::parse_url(&url) else {
+        return Ok(None);
+    };
+    let previous = {
+        let conn = db.0.lock().unwrap();
+        if !db::is_text_clip(&conn, &url).map_err(|e| e.to_string())? {
+            return Ok(None);
+        }
+        db::link_preview(&conn, &url).map_err(|e| e.to_string())?
+    };
+    load_link_preview(&app, &db, &url, &parsed, previous).await
+}
+
+async fn load_link_preview(
+    app: &tauri::AppHandle,
+    db: &Db,
+    url: &str,
+    parsed: &url::Url,
+    previous: Option<LinkPreview>,
+) -> Result<Option<LinkPreview>, String> {
+    let images_dir = images::dir(app).map_err(|e| e.to_string())?;
+    // Offline or unreachable: keep what we have, it will be retried next time
+    let Ok(mut preview) = link_preview::fetch(parsed, &images_dir).await else {
+        return Ok(previous);
+    };
+    // Cached under the copied text, which may differ slightly from the normalized URL
+    preview.url = url.to_owned();
+
+    let old_image = previous.as_ref().and_then(|previous| previous.image.clone());
+    if let Some(previous) = previous {
+        // The website no longer gives a preview (outage, bot protection…): keep the previous one
+        if preview.title.is_none() && preview.image.is_none() {
+            preview = LinkPreview { stale: false, ..previous };
+        }
+    }
+
+    let conn = db.0.lock().unwrap();
+    db::save_link_preview(&conn, &preview, clipboard::now_ms()).map_err(|e| e.to_string())?;
+
+    // The website changed its image: delete the old one unless something else uses it
+    if let Some(old_image) = old_image.filter(|old| preview.image.as_ref() != Some(old)) {
+        if !db::is_image_file_used(&conn, &old_image).unwrap_or(true) {
+            let _ = images::remove_file(&images_dir, &old_image);
+        }
+    }
+    Ok(Some(preview))
+}
+
+/// Records the file size of images copied before it was saved with them.
+fn backfill_image_sizes(conn: &rusqlite::Connection, images_dir: &std::path::Path) {
+    let Ok(images) = db::images_without_size(conn) else { return };
+    for (id, hash) in images {
+        if let Some(size) = images::file_size(images_dir, &hash) {
+            let _ = db::set_byte_size(conn, id, size as i64);
+        }
+    }
+}
+
+fn png_data_url(png: &[u8]) -> String {
+    format!("data:image/png;base64,{}", BASE64.encode(png))
+}
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    tauri::Builder::default()
+        .setup(|app| {
+            let window = app.get_webview_window("main").unwrap();
+
+            window_icon::apply(&window);
+            drop::listen(&window);
+
+            if let Err(e) = apply_mica(&window, None) {
+                eprintln!("[vibrancy] mica failed: {e}");
+            }
+
+            let data_dir = app.path().app_data_dir()?;
+            std::fs::create_dir_all(&data_dir)?;
+            let conn = db::open(&data_dir.join("micropaste.db"))?;
+            backfill_image_sizes(&conn, &images::dir(app.handle())?);
+            // micropaste's own icon (clips copied in its window) may have changed with an update
+            if let Ok(exe) = std::env::current_exe() {
+                let _ = db::forget_app_icon(&conn, &exe.to_string_lossy());
+            }
+            app.manage(Db(Mutex::new(conn)));
+
+            clipboard::start_watcher(app.handle().clone());
+            history::start_cleanup(app.handle().clone());
+            background::setup(app)?;
+
+            Ok(())
+        })
+        // First: a second launch only brings the running app's window back
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| background::show_window(app)))
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            Some(vec![background::HIDDEN_ARG]),
+        ))
+        .plugin(tauri_plugin_opener::init())
+        .invoke_handler(tauri::generate_handler![
+            list_clips,
+            search_clips,
+            count_clips,
+            set_favorite,
+            list_collections,
+            create_collection,
+            rename_collection,
+            reorder_collections,
+            delete_collection,
+            add_to_collection,
+            remove_from_collection,
+            reorder_collection,
+            clip_collections,
+            get_app_icon,
+            copy_clip,
+            delete_clip,
+            get_file_preview,
+            start_drag,
+            show_snap_layouts,
+            drop_text,
+            drop_image,
+            get_link_preview,
+            refresh_link_preview
+        ])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}
