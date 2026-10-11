@@ -116,15 +116,23 @@ const lastCopied = computed(() =>
 )
 const formatNumber = (value: number) => value.toLocaleString('en-US')
 
-// The Copy button turns into "Copied" for a moment
-const copied = ref(false)
+// The Copy button turns into "Copied" for a moment, or tells why it couldn't copy
+const copyLabel = ref<string | null>(null)
+const copyFailed = ref(false)
 let copiedTimer: ReturnType<typeof setTimeout> | undefined
 async function copy() {
   if (!shown.value) return
-  await props.onCopy(shown.value)
+  try {
+    await props.onCopy(shown.value)
+    copyFailed.value = false
+    copyLabel.value = 'Copied'
+  } catch (error) {
+    copyFailed.value = true
+    // The copied files no longer exist…
+    copyLabel.value = typeof error === 'string' ? error : 'Couldn’t copy'
+  }
   clearTimeout(copiedTimer)
-  copied.value = true
-  copiedTimer = setTimeout(() => (copied.value = false), 1200)
+  copiedTimer = setTimeout(() => (copyLabel.value = null), copyFailed.value ? 1800 : 1200)
 }
 onBeforeUnmount(() => clearTimeout(copiedTimer))
 
@@ -344,8 +352,13 @@ const carouselButton = 'absolute top-1/2 flex size-7 -translate-y-1/2 cursor-poi
 
           <!-- Actions -->
           <footer class="flex gap-2 border-t border-black/[5.78%] p-3 dark:border-white/6">
-            <Button variant="filled" icon="gravity-ui:copy" class="flex-1" @click="copy">
-              {{ copied ? 'Copied' : 'Copy' }}
+            <Button
+              variant="filled"
+              :icon="copyLabel && copyFailed ? 'gravity-ui:circle-xmark' : 'gravity-ui:copy'"
+              class="flex-1"
+              @click="copy"
+            >
+              {{ copyLabel ?? 'Copy' }}
             </Button>
             <!-- Icon only: the filled star tells it is a favorite -->
             <Tooltip :content="shown.favorite ? 'Remove from favorites' : 'Add to favorites'">

@@ -22,7 +22,7 @@ pub fn start(app: &AppHandle, window: Window, id: i64) -> Result<(), String> {
         _ => return Err("Only images and files are dragged natively".into()),
     };
     let Some(first) = paths.first() else {
-        return Err("The copied files no longer exist".into());
+        return Err(crate::copy::files_not_found(&clip.content));
     };
     // Without preview, the drag still works, with the default cursor only
     let preview = app_icon::file_preview_png(&first.to_string_lossy(), DRAG_THUMBNAIL_SIZE, DRAG_ICON_SIZE)

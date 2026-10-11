@@ -23,6 +23,11 @@ pub fn is_own_copy() -> bool {
     copied != 0 && clipboard_sequence() == copied
 }
 
+/// Error shown on the tile when none of the copied files exist anymore (moved or deleted).
+pub fn files_not_found(paths: &str) -> String {
+    if paths.lines().count() > 1 { "Files not found" } else { "File not found" }.into()
+}
+
 /// Puts a clip back in the clipboard, ready to paste with Ctrl+V, and moves it back to the top.
 pub fn copy(app: &AppHandle, id: i64) -> Result<(), String> {
     let db = app.state::<Db>();
@@ -40,7 +45,7 @@ pub fn copy(app: &AppHandle, id: i64) -> Result<(), String> {
             // Files moved or deleted since are left out
             let paths: Vec<&Path> = clip.content.lines().map(Path::new).filter(|path| path.exists()).collect();
             if paths.is_empty() {
-                return Err("The copied files no longer exist".into());
+                return Err(crate::copy::files_not_found(&clip.content));
             }
             clipboard.set().file_list(&paths).map_err(|e| e.to_string())?;
         }

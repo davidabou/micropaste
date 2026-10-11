@@ -50,25 +50,35 @@ watch(actionsShown, (shown) => {
 })
 onBeforeUnmount(() => clearTimeout(unmountActions))
 
-const copied = ref(false)
+/** Message shown over the tile for a moment: "Copied", or why it couldn't be copied or dragged */
+const notice = ref<{ text: string, error: boolean } | null>(null)
 /** From the click until "Copied" shows: the delete button stays hidden in between */
 const copying = ref(false)
-let copiedTimer: ReturnType<typeof setTimeout> | undefined
+let noticeTimer: ReturnType<typeof setTimeout> | undefined
+
+function showNotice(text: string, error = false) {
+  // Showing it again restarts the message instead of hiding it early
+  clearTimeout(noticeTimer)
+  notice.value = { text, error }
+  noticeTimer = setTimeout(() => (notice.value = null), error ? 1800 : 1200)
+}
+
+// Copy and drag fail with a message ready to show (the copied files no longer exist…)
+const errorText = (error: unknown) => (typeof error === 'string' ? error : 'Couldn’t copy')
 
 async function copy() {
   copying.value = true
   try {
     await props.onCopy?.()
-    // Copying again restarts the message instead of hiding it early
-    clearTimeout(copiedTimer)
-    copied.value = true
-    copiedTimer = setTimeout(() => (copied.value = false), 1200)
+    showNotice('Copied')
+  } catch (error) {
+    showNotice(errorText(error), true)
   } finally {
     copying.value = false
   }
 }
 
-onBeforeUnmount(() => clearTimeout(copiedTimer))
+onBeforeUnmount(() => clearTimeout(noticeTimer))
 
 // The context menu copies through the tile too, so it shows "Copied" the same way
 defineExpose({ copy })
@@ -130,7 +140,7 @@ async function onDragStart(event: DragEvent) {
   // Mouse moves reach the page again once the webview drag is cancelled: they can't tell when it ends
   event.preventDefault()
   // Resolves once the native drag is dropped or cancelled
-  await invoke('start_drag', { id: props.clip.id }).catch(() => {})
+  await invoke('start_drag', { id: props.clip.id }).catch(error => showNotice(errorText(error), true))
   dragging.value = false
 }
 
@@ -233,7 +243,7 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
       <div
         v-if="isList"
         class="absolute inset-0 flex items-center gap-3 pr-3 pl-2 transition-[filter] duration-200"
-        :class="(copied || confirm) && 'blur-sm'"
+        :class="(notice || confirm) && 'blur-sm'"
       >
         <div class="relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-md bg-black/[3.73%] dark:bg-white/[6.05%]">
           <ClipImage v-if="coverImage" :file="coverImage" class="size-full object-cover" />
@@ -281,7 +291,7 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
       <template v-else>
         <!-- Tile content (the footer aside), blurred under "Copied". Blurred itself rather than through
              a backdrop filter on the message, which didn't reach plain text -->
-        <div class="absolute inset-0 flex flex-col transition-[filter] duration-200" :class="(copied || confirm) && 'blur-sm'">
+        <div class="absolute inset-0 flex flex-col transition-[filter] duration-200" :class="(notice || confirm) && 'blur-sm'">
           <!-- Images and SVGs fill the whole tile, the footer is drawn over them -->
           <ClipImage
             v-if="coverImage"
@@ -386,7 +396,7 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
       <!-- Confirmation over the whole tile: fades in quickly with a small pop, fades out on its own -->
       <AnimatePresence>
         <Motion
-          v-if="copied"
+          v-if="notice"
           class="absolute inset-0 flex items-center justify-center bg-white/50 dark:bg-black/40"
           :initial="{ opacity: 0 }"
           :animate="{ opacity: 1, transition: { duration: 0.1 } }"
@@ -399,8 +409,8 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
             :animate="{ scale: 1 }"
             :transition="{ type: 'spring', bounce: 0.4, duration: 0.35 }"
           >
-            <Icon name="gravity-ui:circle-check-fill" class="text-base" />
-            Copied
+            <Icon :name="notice.error ? 'gravity-ui:circle-xmark-fill' : 'gravity-ui:circle-check-fill'" class="shrink-0 text-base" />
+            {{ notice.text }}
           </Motion>
         </Motion>
       </AnimatePresence>
@@ -445,7 +455,7 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
          Not clickable while hidden -->
     <div
       v-if="actionsMounted"
-      v-show="!dragging && !copying && !copied && !confirm"
+      v-show="!dragging && !copying && !notice && !confirm"
       class="absolute flex gap-1 peer-active:invisible"
       :class="[isList ? 'top-1/2 right-2 -translate-y-1/2' : 'top-1.5 right-1.5', !actionsShown && 'pointer-events-none']"
     >
