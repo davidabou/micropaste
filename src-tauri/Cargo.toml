@@ -36,6 +36,7 @@ drag = "2.1.1"
 tauri-plugin-autostart = "2.7.0"
 tauri-plugin-single-instance = "2.5.3"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "gif", "bmp"] }
+tauri-plugin-global-shortcut = "2"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

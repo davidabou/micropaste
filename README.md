@@ -90,6 +90,7 @@ Your data is stored locally in `%APPDATA%\com.abou.micropaste`.
 
 | Shortcut | Action |
 | --- | --- |
+| <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>V</kbd> | Show Micropaste from anywhere, or hide it |
 | <kbd>Ctrl</kbd> + <kbd>F</kbd> | Search |
 | <kbd>Esc</kbd> | Clear the search, close a panel or a confirmation |
 | <kbd>←</kbd> <kbd>→</kbd> | Browse the files of a group in the details panel |

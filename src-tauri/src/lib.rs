@@ -328,6 +328,7 @@ pub fn run() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec![background::HIDDEN_ARG]),
         ))
+        .plugin(background::shortcut_plugin())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             list_clips,

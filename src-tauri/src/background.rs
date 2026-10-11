@@ -1,14 +1,20 @@
 //! Micropaste runs in the background to record every copy: an icon in the notification area,
-//! a window that hides when closed instead of quitting, and a launch at Windows startup.
+//! a window that hides when closed instead of quitting, a launch at Windows startup, and a global
+//! shortcut to bring the window up from anywhere.
 
 use tauri::image::Image;
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem};
+use tauri::plugin::TauriPlugin;
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::{App, AppHandle, Manager, WindowEvent};
+use tauri::{App, AppHandle, Manager, WindowEvent, Wry};
 use tauri_plugin_autostart::ManagerExt;
+use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
 /// Passed by the launch at Windows startup: the app starts with its window hidden.
 pub const HIDDEN_ARG: &str = "--hidden";
+
+/// Brings the window up from any app, or hides it when it is already in front.
+pub const SHORTCUT: &str = "Alt+Shift+V";
 
 /// Brings the window back, restored and focused.
 pub fn show_window(app: &AppHandle) {
@@ -19,7 +25,32 @@ pub fn show_window(app: &AppHandle) {
     }
 }
 
-/// Sets up the notification area icon, the hiding window and the launch at startup.
+/// Hides the window when it is the one in front, brings it back otherwise.
+fn toggle_window(app: &AppHandle) {
+    let Some(window) = app.get_webview_window("main") else { return };
+    let in_front = window.is_visible().unwrap_or(false)
+        && !window.is_minimized().unwrap_or(false)
+        && window.is_focused().unwrap_or(false);
+    if in_front {
+        let _ = window.hide();
+    } else {
+        show_window(app);
+    }
+}
+
+/// Handles the global shortcut. It is registered in `setup`, where a failure (the shortcut already
+/// taken by another app) is only logged instead of stopping the app.
+pub fn shortcut_plugin() -> TauriPlugin<Wry> {
+    tauri_plugin_global_shortcut::Builder::new()
+        .with_handler(|app, _shortcut, event| {
+            if event.state == ShortcutState::Pressed {
+                toggle_window(app);
+            }
+        })
+        .build()
+}
+
+/// Sets up the notification area icon, the hiding window, the shortcut and the launch at startup.
 pub fn setup(app: &mut App) -> tauri::Result<()> {
     let window = app.get_webview_window("main").expect("main window");
 
@@ -35,6 +66,10 @@ pub fn setup(app: &mut App) -> tauri::Result<()> {
     // Started by Windows at login: stays in the background. Otherwise, shown right away
     if !std::env::args().any(|arg| arg == HIDDEN_ARG) {
         let _ = window.show();
+    }
+
+    if let Err(e) = app.global_shortcut().register(SHORTCUT) {
+        eprintln!("[shortcut] cannot register {SHORTCUT}: {e}");
     }
 
     enable_launch_at_startup_once(app);
@@ -58,7 +93,7 @@ fn enable_launch_at_startup_once(app: &App) {
 }
 
 fn create_tray(app: &App) -> tauri::Result<()> {
-    let open = MenuItem::with_id(app, "open", "Open Micropaste", true, None::<&str>)?;
+    let open = MenuItem::with_id(app, "open", "Open Micropaste", true, Some(SHORTCUT))?;
     let startup_enabled = app.autolaunch().is_enabled().unwrap_or(false);
     let startup = CheckMenuItem::with_id(app, "startup", "Launch at startup", true, startup_enabled, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Quit Micropaste", true, None::<&str>)?;
