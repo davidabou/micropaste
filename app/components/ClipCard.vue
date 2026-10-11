@@ -269,7 +269,8 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
           <img v-else-if="svgSrc" :src="svgSrc" alt="" draggable="false" class="size-6 object-contain">
           <Icon v-else-if="link" name="gravity-ui:globe" class="text-[20px] opacity-50" />
           <img v-else-if="filePreview?.image" :src="filePreview.image" alt="" draggable="false" class="size-7 object-contain">
-          <Icon v-else-if="files" name="gravity-ui:file-xmark" class="text-[20px] opacity-50" />
+          <Icon v-else-if="files && filePreview" name="gravity-ui:file-xmark" class="text-[20px] opacity-50" />
+          <div v-else-if="files" class="skeleton size-full" />
           <Icon v-else name="gravity-ui:text-align-left" class="text-[20px] opacity-50" />
         </div>
         <!-- Fades out before the corner buttons while they show, instead of running under them -->
@@ -352,6 +353,7 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
                   :class="card.preview.thumbnail ? 'object-cover' : 'object-contain p-3'"
                 >
                 <Icon v-else-if="card.preview" name="gravity-ui:file-xmark" class="text-[32px] opacity-40" />
+                <div v-else class="skeleton size-full" />
               </div>
             </div>
           </div>
@@ -359,6 +361,7 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
           <div v-else-if="files" class="absolute inset-0 flex items-center justify-center">
             <img v-if="filePreview?.image" :src="filePreview.image" alt="" draggable="false" class="size-16 object-contain">
             <Icon v-else-if="filePreview" name="gravity-ui:file-xmark" class="text-[64px] opacity-40" />
+            <div v-else class="skeleton size-16 rounded-md" />
           </div>
           <!-- Plain text starts below the delete button, which never covers it -->
           <div v-else class="min-h-0 flex-1">

@@ -35,6 +35,8 @@ export function useClips(
   favoritesOnly: MaybeRefOrGetter<boolean> = false
 ) {
   const history = ref<Clip[]>([])
+  /** Until the saved history is loaded, at launch */
+  const historyLoading = ref(true)
   // Tab counts change with every deletion and collection change
   const { refresh: refreshCounts } = useCollections()
   /**
@@ -149,6 +151,7 @@ export function useClips(
     const saved = await invoke<Clip[]>('list_clips')
     const live = history.value
     history.value = [...live, ...saved.filter(s => !live.some(c => c.id === s.id))]
+    historyLoading.value = false
     loadCollection()
   })
 
@@ -249,6 +252,7 @@ export function useClips(
     shownCollection: readonly(shownCollection),
     searching,
     loading,
+    historyLoading,
     copy,
     remove,
     addToCollection,

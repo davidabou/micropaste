@@ -12,6 +12,8 @@ const props = defineProps<{
   reorderable?: boolean
   /** Tiles in a grid, or rows in a list */
   layout?: 'grid' | 'list'
+  /** The clips aren't loaded yet: placeholder tiles stand in for them */
+  loading?: boolean
 }>()
 
 // Tiles by clip id: the context menu copies through its tile, which then shows "Copied"
@@ -213,6 +215,26 @@ function onRemoveFrom(clip: Clip, collection: number) {
         </Motion>
       </AnimatePresence>
     </LayoutGroup>
+
+    <!-- Placeholder tiles while the clips load, shaped like the real ones: title and footer -->
+    <template v-if="loading && !clips.length">
+      <div
+        v-for="i in (layout === 'list' ? 10 : 12)"
+        :key="i"
+        class="flex rounded-lg border border-black/[5.78%] bg-black/[3.73%] dark:border-white/6 dark:bg-white/[6.05%]"
+        :class="layout === 'list' ? 'h-14 items-center gap-3 pr-3 pl-2' : 'h-44 flex-col justify-end p-3'"
+      >
+        <div v-if="layout === 'list'" class="skeleton size-10 shrink-0 rounded-md" />
+        <div class="flex min-w-0 flex-1 flex-col gap-2" :class="layout !== 'list' && 'justify-end'">
+          <!-- Titles of varied lengths, like real ones -->
+          <div class="skeleton h-3.5 rounded-sm" :style="{ width: `${45 + (i * 37) % 40}%` }" />
+          <div class="flex items-center gap-1.5">
+            <div class="skeleton size-4 rounded-sm" />
+            <div class="skeleton h-2.5 w-12 rounded-sm" />
+          </div>
+        </div>
+      </div>
+    </template>
 
     <!-- Reaching it renders the next page of tiles -->
     <div ref="end" class="col-span-full h-px" />

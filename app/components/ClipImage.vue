@@ -14,14 +14,18 @@ const props = defineProps<{
 }>()
 
 const src = ref<string>()
+const loaded = ref(false)
 
 watchEffect(async () => {
   const file = props.file
   const path = await join(await getImagesDir(), file)
-  if (props.file === file) src.value = convertFileSrc(path)
+  if (props.file !== file) return
+  loaded.value = false
+  src.value = convertFileSrc(path)
 })
 </script>
 
 <template>
-  <img v-if="src" :src="src" alt="" draggable="false">
+  <!-- A placeholder until the picture shows: no src yet, or still loading (not once it failed) -->
+  <img :src="src" alt="" draggable="false" :class="!loaded && 'skeleton'" @load="loaded = true" @error="loaded = true">
 </template>

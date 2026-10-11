@@ -19,18 +19,23 @@ const props = defineProps<{
 }>()
 
 const src = ref<string | null>(null)
+const loading = ref(false)
 
 watchEffect(async () => {
   const path = props.path
   src.value = null
   if (!path) return
+  loading.value = true
   const icon = await loadIcon(path)
   // Ignore the result if the path changed while loading
-  if (props.path === path) src.value = icon
+  if (props.path !== path) return
+  src.value = icon
+  loading.value = false
 })
 </script>
 
 <template>
   <img v-if="src" :src="src" alt="" class="size-4 shrink-0" draggable="false">
+  <span v-else-if="loading" class="skeleton size-4 shrink-0 rounded-sm" />
   <Icon v-else name="gravity-ui:square-dashed" class="size-4 shrink-0 opacity-60" />
 </template>

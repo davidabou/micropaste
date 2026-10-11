@@ -19,6 +19,7 @@ const {
   shownCollection,
   searching,
   loading,
+  historyLoading,
   copy,
   remove,
   addToCollection,
@@ -192,6 +193,7 @@ onBeforeUnmount(() => {
           :clips="historyClips"
           :collection="null"
           :layout="layout"
+          :loading="historyLoading"
           @info="detailsClip = $event"
           @copy="copy"
           @favorite="toggleFavorite"

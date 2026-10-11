@@ -25,3 +25,25 @@ html {
         --scrollbar-thumb: rgb(255 255 255 / 0.45);
     }
 }
+
+/* Placeholder of content still loading: a soft light sweeping across, as in Windows 11.
+   Fixed to the window: every placeholder shares the same sweep, as one */
+.skeleton {
+    --skeleton-base: rgb(0 0 0 / 0.05);
+    --skeleton-light: rgb(0 0 0 / 0.1);
+    background: linear-gradient(100deg, var(--skeleton-base) 40%, var(--skeleton-light) 50%, var(--skeleton-base) 60%) fixed;
+    background-size: 200% 100%;
+    animation: skeleton-sweep 1.6s ease-in-out infinite;
+}
+
+@media (prefers-color-scheme: dark) {
+    .skeleton {
+        --skeleton-base: rgb(255 255 255 / 0.05);
+        --skeleton-light: rgb(255 255 255 / 0.11);
+    }
+}
+
+@keyframes skeleton-sweep {
+    from { background-position: 150% 0; }
+    to { background-position: -50% 0; }
+}
