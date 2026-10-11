@@ -179,7 +179,7 @@ const carouselButton = 'absolute top-1/2 flex size-7 -translate-y-1/2 cursor-poi
         >
           <!-- Header: what it is, and the close button -->
           <header class="flex items-center gap-2 px-4 pt-4 pb-3">
-            <DialogTitle class="min-w-0 flex-1 truncate text-base font-semibold">
+            <DialogTitle class="min-w-0 flex-1 truncate text-base font-medium">
               {{ title }}
             </DialogTitle>
             <DialogClose as-child>
@@ -343,7 +343,7 @@ const carouselButton = 'absolute top-1/2 flex size-7 -translate-y-1/2 cursor-poi
           </div>
 
           <!-- Actions -->
-          <footer class="flex gap-2 border-t border-black/[5.78%] p-3 dark:border-white/[6%]">
+          <footer class="flex gap-2 border-t border-black/[5.78%] p-3 dark:border-white/6">
             <Button variant="filled" icon="gravity-ui:copy" class="flex-1" @click="copy">
               {{ copied ? 'Copied' : 'Copy' }}
             </Button>
