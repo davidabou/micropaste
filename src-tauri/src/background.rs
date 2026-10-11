@@ -6,7 +6,7 @@ use tauri::image::Image;
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem};
 use tauri::plugin::TauriPlugin;
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::{App, AppHandle, Manager, WindowEvent, Wry};
+use tauri::{App, AppHandle, Manager, PhysicalPosition, WebviewWindow, WindowEvent, Wry};
 use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
@@ -63,6 +63,8 @@ pub fn setup(app: &mut App) -> tauri::Result<()> {
         }
     });
 
+    move_to_bottom_right(&window);
+
     // Started by Windows at login: stays in the background. Otherwise, shown right away
     if !std::env::args().any(|arg| arg == HIDDEN_ARG) {
         let _ = window.show();
@@ -74,6 +76,21 @@ pub fn setup(app: &mut App) -> tauri::Result<()> {
 
     enable_launch_at_startup_once(app);
     create_tray(app)
+}
+
+/// Gap between the window and the screen edges, in logical pixels, like the Windows flyouts.
+const SCREEN_MARGIN: f64 = 12.0;
+
+/// Places the window in the bottom right corner of the main screen, above the taskbar.
+fn move_to_bottom_right(window: &WebviewWindow) {
+    let (Ok(Some(monitor)), Ok(size)) = (window.primary_monitor(), window.outer_size()) else { return };
+    let area = monitor.work_area();
+    let margin = (SCREEN_MARGIN * monitor.scale_factor()).round() as i32;
+    let x = area.position.x + area.size.width as i32 - size.width as i32 - margin;
+    let y = area.position.y + area.size.height as i32 - size.height as i32 - margin;
+    // A window larger than the screen keeps its top left corner visible
+    let position = PhysicalPosition::new(x.max(area.position.x), y.max(area.position.y));
+    let _ = window.set_position(position);
 }
 
 /// Turns the launch at startup on at the very first run, in installed builds only (a dev build
