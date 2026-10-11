@@ -18,7 +18,7 @@ Local-first, fast, with a premium, native Windows 11 design (inspired by Supaste
 
 ## Stack
 
-- **Tauri 2** (Rust, `src-tauri/`, crate `tauri-app`, lib `tauri_app_lib`).
+- **Tauri 2** (Rust, `src-tauri/`, crate `Micropaste`, lib `tauri_app_lib`).
   - The identifier `com.abou.micropaste` must **not** change: the data lives in `%APPDATA%\com.abou.micropaste`.
   - Build: `bun run tauri build`, NSIS installer in `src-tauri/target/release/bundle/nsis/`.
   - Release: bump `version` in `tauri.conf.json`, then push a matching tag (`v0.2.0`): `release.yml` builds the installer into a draft GitHub release.
@@ -43,15 +43,17 @@ Local-first, fast, with a premium, native Windows 11 design (inspired by Supaste
 | `drop.rs` | External drop into a collection (files via WebView2 `postMessageWithAdditionalObjects`, text, images) |
 | `source_app.rs` | Source app (foreground app) |
 | `link_preview.rs` | Link previews |
-| `background.rs` | Tray icon, close = hide, autostart, single-instance, `--hidden` |
+| `background.rs` | Tray icon, close = hide, autostart, single-instance, `--hidden`, Alt+Shift+V global shortcut, window placed in the bottom right corner at launch |
 | `snap_layouts.rs` | Hovering the Maximize button: Win+Z via SendInput |
-| `window_icon.rs`, `app_icon.rs` | Sharp icon at the right DPI |
+| `window_icon.rs` | Sharp window icon at the right DPI |
+| `app_icon.rs` | Source app icons, and file thumbnails as the Explorer shows them |
 
 ### Frontend (`app/`)
 
 - `app.vue`: tabs, History grid always mounted, collection grids, search, favorites filter, grid/list layout, external drop.
-- `components/`: `ClipCard` (tile), `ClipGrid`, `ClipContextMenu`, `ClipDetails` (side panel), `CollectionTabs`, `Tooltip`, `TitleBar`, `Button`, `Input`.
-- `composables/`: `useClips`, `useCollections`, `useTileDrag`, link and file previews.
+- `components/`: `ClipCard` (tile), `ClipGrid`, `ClipContextMenu`, `ClipDetails` (side panel), `ClipImage`, `AppIcon`, `CollectionTabs`, `TabPill`, `Tooltip`, `TitleBar`, `Button`, `Input`.
+- `composables/`: `useClips`, `useCollections`, `useTileDrag`, link and file previews, `useTimeAgo`, `useVisible`, `usePrefersDark`.
+- `assets/css/main.css`: global styles, including the `.skeleton` class for content still loading.
 - `utils/`: colors, SVG, links, files, `menu.ts` (shared menu animation).
 
 ## Product rules
