@@ -27,8 +27,7 @@ export default defineNuxtConfig({
       subsets: ['latin', 'latin-ext']
     },
     families: [
-      // Windows system fonts: already installed, never fetch them from a provider
-      { name: 'Segoe UI Variable Text', provider: 'none' },
+      // Windows system font, already installed: never fetch it from a provider
       { name: 'Segoe UI', provider: 'none' }
     ]
   },
