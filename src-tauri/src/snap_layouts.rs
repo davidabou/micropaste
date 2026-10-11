@@ -19,7 +19,7 @@ pub fn show(button: ButtonRect) {
     use std::thread::sleep;
     use std::time::Duration;
     use windows::Win32::Foundation::{POINT, RECT};
-    use windows::Win32::UI::Input::KeyboardAndMouse::{VK_ESCAPE, VK_LWIN, VK_MENU, VIRTUAL_KEY};
+    use windows::Win32::UI::Input::KeyboardAndMouse::{VIRTUAL_KEY, VK_ESCAPE, VK_LWIN, VK_MENU};
     use windows::Win32::UI::WindowsAndMessaging::{GetCursorPos, GetForegroundWindow, GetWindowRect, IsWindowVisible};
 
     const VK_Z: VIRTUAL_KEY = VIRTUAL_KEY(0x5A);
@@ -81,7 +81,7 @@ pub fn show(button: ButtonRect) {
 fn press(keys: &[(windows::Win32::UI::Input::KeyboardAndMouse::VIRTUAL_KEY, bool)]) {
     use std::mem::size_of;
     use windows::Win32::UI::Input::KeyboardAndMouse::{
-        SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP,
+        INPUT, INPUT_0, INPUT_KEYBOARD, KEYBD_EVENT_FLAGS, KEYBDINPUT, KEYEVENTF_KEYUP, SendInput,
     };
 
     let inputs: Vec<INPUT> = keys

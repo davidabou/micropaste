@@ -31,9 +31,11 @@ pub fn remove(app: &AppHandle, conn: &Connection, id: i64) -> Result<(), String>
 /// The first cleanup runs before the window loads the history, so it never shows expired clips.
 pub fn start_cleanup(app: AppHandle) {
     purge_or_log(&app);
-    thread::spawn(move || loop {
-        thread::sleep(PURGE_INTERVAL);
-        purge_or_log(&app);
+    thread::spawn(move || {
+        loop {
+            thread::sleep(PURGE_INTERVAL);
+            purge_or_log(&app);
+        }
     });
 }
 

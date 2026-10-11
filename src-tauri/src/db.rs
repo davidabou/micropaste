@@ -1,7 +1,7 @@
 use std::path::Path;
 use std::sync::Mutex;
 
-use rusqlite::{params, Connection, OptionalExtension, Row};
+use rusqlite::{Connection, OptionalExtension, Row, params};
 use serde::Serialize;
 
 use crate::link_preview::LinkPreview;
@@ -163,15 +163,11 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
 
 /// Cached PNG icon of an executable.
 pub fn app_icon(conn: &Connection, path: &str) -> rusqlite::Result<Option<Vec<u8>>> {
-    conn.query_row("SELECT png FROM app_icons WHERE path = ?1", params![path], |row| row.get(0))
-        .optional()
+    conn.query_row("SELECT png FROM app_icons WHERE path = ?1", params![path], |row| row.get(0)).optional()
 }
 
 pub fn save_app_icon(conn: &Connection, path: &str, png: &[u8]) -> rusqlite::Result<()> {
-    conn.execute(
-        "INSERT OR REPLACE INTO app_icons (path, png) VALUES (?1, ?2)",
-        params![path, png],
-    )?;
+    conn.execute("INSERT OR REPLACE INTO app_icons (path, png) VALUES (?1, ?2)", params![path, png])?;
     Ok(())
 }
 
@@ -183,11 +179,7 @@ pub fn forget_app_icon(conn: &Connection, path: &str) -> rusqlite::Result<()> {
 
 /// Whether some clip was copied from this executable.
 pub fn is_source_app(conn: &Connection, path: &str) -> rusqlite::Result<bool> {
-    conn.query_row(
-        "SELECT EXISTS (SELECT 1 FROM clips WHERE source_app_path = ?1)",
-        params![path],
-        |row| row.get(0),
-    )
+    conn.query_row("SELECT EXISTS (SELECT 1 FROM clips WHERE source_app_path = ?1)", params![path], |row| row.get(0))
 }
 
 impl NewClip<'_> {
@@ -195,7 +187,9 @@ impl NewClip<'_> {
     fn columns(&self) -> (&'static str, &str, Option<u32>, Option<u32>, Option<i64>) {
         match *self {
             NewClip::Text(text) => ("text", text, None, None, None),
-            NewClip::Image { hash, width, height, byte_size } => ("image", hash, Some(width), Some(height), Some(byte_size)),
+            NewClip::Image { hash, width, height, byte_size } => {
+                ("image", hash, Some(width), Some(height), Some(byte_size))
+            }
             NewClip::Files { paths, byte_size } => ("files", paths, None, None, byte_size),
         }
     }
@@ -203,21 +197,24 @@ impl NewClip<'_> {
 
 pub enum NewClip<'a> {
     Text(&'a str),
-    Image { hash: &'a str, width: u32, height: u32, byte_size: i64 },
+    Image {
+        hash: &'a str,
+        width: u32,
+        height: u32,
+        byte_size: i64,
+    },
     /// File paths, one per line
-    Files { paths: &'a str, byte_size: Option<i64> },
+    Files {
+        paths: &'a str,
+        byte_size: Option<i64>,
+    },
 }
 
 const COLUMNS: &str =
     "id, kind, content, width, height, byte_size, source_app_name, source_app_path, created_at, favorite";
 
 /// Saves a clip. Copying the same content again moves it back to the top.
-pub fn save(
-    conn: &Connection,
-    clip: NewClip,
-    source: Option<&SourceApp>,
-    now: i64,
-) -> rusqlite::Result<Clip> {
+pub fn save(conn: &Connection, clip: NewClip, source: Option<&SourceApp>, now: i64) -> rusqlite::Result<Clip> {
     let (kind, content, width, height, byte_size) = clip.columns();
     conn.query_row(
         &format!(
@@ -230,28 +227,14 @@ pub fn save(
                  in_history = 1
              RETURNING {COLUMNS}"
         ),
-        params![
-            kind,
-            content,
-            width,
-            height,
-            byte_size,
-            source.map(|s| &s.name),
-            source.map(|s| &s.path),
-            now
-        ],
+        params![kind, content, width, height, byte_size, source.map(|s| &s.name), source.map(|s| &s.path), now],
         to_clip,
     )
 }
 
 /// Saves content dropped into a collection: out of the history, with the app it came from. Content already
 /// saved (copied or dropped before) is returned as is.
-pub fn save_dropped(
-    conn: &Connection,
-    clip: NewClip,
-    source: Option<&SourceApp>,
-    now: i64,
-) -> rusqlite::Result<Clip> {
+pub fn save_dropped(conn: &Connection, clip: NewClip, source: Option<&SourceApp>, now: i64) -> rusqlite::Result<Clip> {
     let (kind, content, width, height, byte_size) = clip.columns();
     conn.execute(
         "INSERT INTO clips (kind, content, width, height, byte_size, source_app_name, source_app_path, created_at, in_history)
@@ -325,10 +308,9 @@ pub fn save_link_preview(conn: &Connection, preview: &LinkPreview, now: i64) -> 
 
 /// Images saved before their file size was recorded, as `(id, hash)`.
 pub fn images_without_size(conn: &Connection) -> rusqlite::Result<Vec<(i64, String)>> {
-    let mut stmt =
-        conn.prepare("SELECT id, content FROM clips WHERE kind = 'image' AND byte_size IS NULL")?;
-    let images = stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?.collect();
-    images
+    let mut stmt = conn.prepare("SELECT id, content FROM clips WHERE kind = 'image' AND byte_size IS NULL")?;
+
+    stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?.collect()
 }
 
 pub fn set_byte_size(conn: &Connection, id: i64, byte_size: i64) -> rusqlite::Result<()> {
@@ -366,8 +348,8 @@ pub fn expired(conn: &Connection, before: i64) -> rusqlite::Result<Vec<i64>> {
          WHERE (created_at < ?1 OR in_history = 0) AND favorite = 0
            AND id NOT IN (SELECT clip_id FROM collection_clips)",
     )?;
-    let ids = stmt.query_map(params![before], |row| row.get(0))?.collect();
-    ids
+
+    stmt.query_map(params![before], |row| row.get(0))?.collect()
 }
 
 /// Deletes a clip, with its link preview if no other clip shows it.
@@ -384,11 +366,11 @@ pub fn delete(conn: &Connection, id: i64) -> rusqlite::Result<Vec<String>> {
     } else if clip.kind == "text" {
         // Previews are cached under the trimmed text
         let url = clip.content.trim();
-        if !is_text_clip(conn, url)? {
-            if let Some(preview) = link_preview(conn, url)? {
-                conn.execute("DELETE FROM link_previews WHERE url = ?1", params![url])?;
-                files.extend(preview.image);
-            }
+        if !is_text_clip(conn, url)?
+            && let Some(preview) = link_preview(conn, url)?
+        {
+            conn.execute("DELETE FROM link_previews WHERE url = ?1", params![url])?;
+            files.extend(preview.image);
         }
     }
     Ok(files)
@@ -396,12 +378,7 @@ pub fn delete(conn: &Connection, id: i64) -> rusqlite::Result<Vec<String>> {
 
 /// The history, newest first, or the clips of a collection, last added first.
 /// `favorites` keeps only the favorite clips.
-pub fn list(
-    conn: &Connection,
-    limit: u32,
-    collection: Option<i64>,
-    favorites: bool,
-) -> rusqlite::Result<Vec<Clip>> {
+pub fn list(conn: &Connection, limit: u32, collection: Option<i64>, favorites: bool) -> rusqlite::Result<Vec<Clip>> {
     let (join, order) = collection_scope(collection);
     // The history leaves out content only dropped into collections
     let mut filters = Vec::new();
@@ -414,17 +391,16 @@ pub fn list(
     let filter = if filters.is_empty() { String::new() } else { format!("WHERE {}", filters.join(" AND ")) };
     let mut stmt =
         conn.prepare(&format!("SELECT {COLUMNS} FROM clips {join} {filter} ORDER BY {order} LIMIT {limit}"))?;
-    let clips = stmt.query_map([], to_clip)?.collect();
-    clips
+
+    stmt.query_map([], to_clip)?.collect()
 }
 
 /// Join restricting a query to a collection, and its order. The id comes from SQLite, not from text.
 fn collection_scope(collection: Option<i64>) -> (String, &'static str) {
     match collection {
-        Some(id) => (
-            format!("JOIN collection_clips ON clip_id = id AND collection_id = {id}"),
-            "position, added_at DESC",
-        ),
+        Some(id) => {
+            (format!("JOIN collection_clips ON clip_id = id AND collection_id = {id}"), "position, added_at DESC")
+        }
         None => (String::new(), "created_at DESC"),
     }
 }
@@ -443,10 +419,8 @@ pub fn collections(conn: &Connection) -> rusqlite::Result<Vec<Collection>> {
         "SELECT id, name, (SELECT COUNT(*) FROM collection_clips WHERE collection_id = id)
          FROM collections ORDER BY position, id",
     )?;
-    let collections = stmt
-        .query_map([], |row| Ok(Collection { id: row.get(0)?, name: row.get(1)?, count: row.get(2)? }))?
-        .collect();
-    collections
+
+    stmt.query_map([], |row| Ok(Collection { id: row.get(0)?, name: row.get(1)?, count: row.get(2)? }))?.collect()
 }
 
 /// Number of clips in the history.
@@ -507,18 +481,15 @@ pub fn reorder_collection(conn: &mut Connection, collection: i64, clips: &[i64])
 }
 
 pub fn remove_from_collection(conn: &Connection, collection: i64, clip: i64) -> rusqlite::Result<()> {
-    conn.execute(
-        "DELETE FROM collection_clips WHERE collection_id = ?1 AND clip_id = ?2",
-        params![collection, clip],
-    )?;
+    conn.execute("DELETE FROM collection_clips WHERE collection_id = ?1 AND clip_id = ?2", params![collection, clip])?;
     Ok(())
 }
 
 /// Ids of the collections a clip is in.
 pub fn clip_collections(conn: &Connection, clip: i64) -> rusqlite::Result<Vec<i64>> {
     let mut stmt = conn.prepare("SELECT collection_id FROM collection_clips WHERE clip_id = ?1")?;
-    let ids = stmt.query_map(params![clip], |row| row.get(0))?.collect();
-    ids
+
+    stmt.query_map(params![clip], |row| row.get(0))?.collect()
 }
 
 /// Clips matching every word of the query, newest first. A word matches the text,
@@ -564,8 +535,8 @@ pub fn search(
          ORDER BY {order} LIMIT {limit}",
         conditions.join(" AND ")
     ))?;
-    let clips = stmt.query_map(rusqlite::params_from_iter(&words), to_clip)?.collect();
-    clips
+
+    stmt.query_map(rusqlite::params_from_iter(&words), to_clip)?.collect()
 }
 
 fn to_clip(row: &Row) -> rusqlite::Result<Clip> {

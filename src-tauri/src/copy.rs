@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use arboard::{Clipboard, ImageData};
 use tauri::{AppHandle, Emitter, Manager};
 
-use crate::clipboard::{now_ms, CLIP_ADDED_EVENT};
+use crate::clipboard::{CLIP_ADDED_EVENT, now_ms};
 use crate::db::{self, Db};
 use crate::images;
 
@@ -32,19 +32,13 @@ pub fn copy(app: &AppHandle, id: i64) -> Result<(), String> {
     match clip.kind.as_str() {
         "image" => {
             let dir = images::dir(app).map_err(|e| e.to_string())?;
-            let (width, height, rgba) =
-                images::load_rgba(&dir, &clip.content).map_err(|e| e.to_string())?;
-            let image = ImageData {
-                width: width as usize,
-                height: height as usize,
-                bytes: rgba.into(),
-            };
+            let (width, height, rgba) = images::load_rgba(&dir, &clip.content).map_err(|e| e.to_string())?;
+            let image = ImageData { width: width as usize, height: height as usize, bytes: rgba.into() };
             clipboard.set_image(image).map_err(|e| e.to_string())?;
         }
         "files" => {
             // Files moved or deleted since are left out
-            let paths: Vec<&Path> =
-                clip.content.lines().map(Path::new).filter(|path| path.exists()).collect();
+            let paths: Vec<&Path> = clip.content.lines().map(Path::new).filter(|path| path.exists()).collect();
             if paths.is_empty() {
                 return Err("The copied files no longer exist".into());
             }

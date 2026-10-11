@@ -36,10 +36,11 @@ pub fn detect() -> Option<SourceApp> {
         let foreground = foreground()?;
         // A classic app in the foreground doesn't write through the Windows service:
         // the copy came from a background Store app, usually a Win+Shift+S screenshot
-        if via_system_host && foreground.app_user_model_id.is_none() {
-            if let Some(snipping_tool) = win::running_snipping_tool() {
-                return Some(snipping_tool);
-            }
+        if via_system_host
+            && foreground.app_user_model_id.is_none()
+            && let Some(snipping_tool) = win::running_snipping_tool()
+        {
+            return Some(snipping_tool);
         }
         Some(foreground)
     })?;
@@ -111,29 +112,23 @@ fn is_own_window() -> bool {
     let foreground_is_own = win::window_pid(unsafe { GetForegroundWindow() }) == Some(own_pid);
     let owner_is_webview = match owner_pid {
         None => true,
-        Some(pid) => win::open_process(pid)
-            .is_some_and(|process| file_name_is(&process.exe, "msedgewebview2.exe")),
+        Some(pid) => win::open_process(pid).is_some_and(|process| file_name_is(&process.exe, "msedgewebview2.exe")),
     };
     foreground_is_own && owner_is_webview
 }
 
 fn file_stem(path: &str) -> String {
-    Path::new(path)
-        .file_stem()
-        .map(|stem| stem.to_string_lossy().into_owned())
-        .unwrap_or_else(|| path.to_owned())
+    Path::new(path).file_stem().map(|stem| stem.to_string_lossy().into_owned()).unwrap_or_else(|| path.to_owned())
 }
 
 fn file_name_is(path: &str, name: &str) -> bool {
-    Path::new(path)
-        .file_name()
-        .is_some_and(|file| file.to_string_lossy().eq_ignore_ascii_case(name))
+    Path::new(path).file_name().is_some_and(|file| file.to_string_lossy().eq_ignore_ascii_case(name))
 }
 
 /// Initializes COM on the current thread, required by the shell APIs.
 #[cfg(windows)]
 pub fn init_com() {
-    use windows::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED};
+    use windows::Win32::System::Com::{COINIT_APARTMENTTHREADED, CoInitializeEx};
     // Fails harmlessly when COM is already initialized on this thread
     let _ = unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED) };
 }
@@ -143,23 +138,19 @@ mod win {
     use std::ffi::c_void;
     use std::mem::size_of;
 
-    use windows::core::{HSTRING, PWSTR};
     use windows::Win32::Foundation::{CloseHandle, ERROR_SUCCESS, HANDLE, HWND};
-    use windows::Win32::Storage::FileSystem::{
-        GetFileVersionInfoSizeW, GetFileVersionInfoW, VerQueryValueW,
-    };
+    use windows::Win32::Storage::FileSystem::{GetFileVersionInfoSizeW, GetFileVersionInfoW, VerQueryValueW};
     use windows::Win32::Storage::Packaging::Appx::GetApplicationUserModelId;
     use windows::Win32::System::Com::CoTaskMemFree;
     use windows::Win32::System::Diagnostics::ToolHelp::{
-        CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W,
-        TH32CS_SNAPPROCESS,
+        CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW, TH32CS_SNAPPROCESS,
     };
     use windows::Win32::System::Threading::{
-        OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_WIN32,
-        PROCESS_QUERY_LIMITED_INFORMATION,
+        OpenProcess, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW,
     };
     use windows::Win32::UI::Shell::{IShellItem, SHCreateItemFromParsingName, SIGDN_NORMALDISPLAY};
     use windows::Win32::UI::WindowsAndMessaging::{FindWindowExW, GetWindowThreadProcessId};
+    use windows::core::{HSTRING, PWSTR};
 
     use super::{file_name_is, init_com};
 
@@ -214,20 +205,14 @@ mod win {
     /// The Snipping Tool process if it is running (it handles Win+Shift+S screenshots).
     pub fn running_snipping_tool() -> Option<Process> {
         let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) }.ok()?;
-        let mut entry = PROCESSENTRY32W {
-            dwSize: size_of::<PROCESSENTRY32W>() as u32,
-            ..Default::default()
-        };
+        let mut entry = PROCESSENTRY32W { dwSize: size_of::<PROCESSENTRY32W>() as u32, ..Default::default() };
 
         let mut found = None;
         let mut has_entry = unsafe { Process32FirstW(snapshot, &mut entry) }.is_ok();
         while has_entry {
             let len = entry.szExeFile.iter().position(|&c| c == 0).unwrap_or(entry.szExeFile.len());
             let exe = String::from_utf16_lossy(&entry.szExeFile[..len]);
-            if ["ScreenClippingHost.exe", "SnippingTool.exe"]
-                .iter()
-                .any(|name| exe.eq_ignore_ascii_case(name))
-            {
+            if ["ScreenClippingHost.exe", "SnippingTool.exe"].iter().any(|name| exe.eq_ignore_ascii_case(name)) {
                 found = Some(entry.th32ProcessID);
                 break;
             }
@@ -253,18 +238,15 @@ mod win {
     fn exe_path(process: HANDLE) -> Option<String> {
         let mut buffer = [0u16; 1024];
         let mut len = buffer.len() as u32;
-        unsafe {
-            QueryFullProcessImageNameW(process, PROCESS_NAME_WIN32, PWSTR(buffer.as_mut_ptr()), &mut len)
-        }
-        .ok()?;
+        unsafe { QueryFullProcessImageNameW(process, PROCESS_NAME_WIN32, PWSTR(buffer.as_mut_ptr()), &mut len) }
+            .ok()?;
         Some(String::from_utf16_lossy(&buffer[..len as usize]))
     }
 
     fn app_user_model_id(process: HANDLE) -> Option<String> {
         let mut buffer = [0u16; 512];
         let mut len = buffer.len() as u32;
-        let result =
-            unsafe { GetApplicationUserModelId(process, &mut len, Some(PWSTR(buffer.as_mut_ptr()))) };
+        let result = unsafe { GetApplicationUserModelId(process, &mut len, Some(PWSTR(buffer.as_mut_ptr()))) };
         if result != ERROR_SUCCESS || len == 0 {
             return None; // Not a packaged app
         }
@@ -275,8 +257,7 @@ mod win {
     /// Localized name the shell shows for a path, e.g. "Calculatrice".
     pub fn shell_display_name(path: &str) -> Option<String> {
         init_com();
-        let item: IShellItem =
-            unsafe { SHCreateItemFromParsingName(&HSTRING::from(path), None) }.ok()?;
+        let item: IShellItem = unsafe { SHCreateItemFromParsingName(&HSTRING::from(path), None) }.ok()?;
         let name = unsafe { item.GetDisplayName(SIGDN_NORMALDISPLAY) }.ok()?;
         let text = unsafe { name.to_string() }.ok();
         unsafe { CoTaskMemFree(Some(name.0 as *const c_void)) };
@@ -314,8 +295,7 @@ mod win {
     fn query_value(data: &[u8], key: &str) -> Option<(*const u16, u32)> {
         let mut value: *mut c_void = std::ptr::null_mut();
         let mut len = 0u32;
-        let found =
-            unsafe { VerQueryValueW(data.as_ptr().cast(), &HSTRING::from(key), &mut value, &mut len) };
+        let found = unsafe { VerQueryValueW(data.as_ptr().cast(), &HSTRING::from(key), &mut value, &mut len) };
         if !found.as_bool() || value.is_null() || len == 0 {
             return None;
         }

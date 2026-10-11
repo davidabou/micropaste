@@ -78,7 +78,10 @@ impl Watcher {
 
 enum Content {
     Text(String),
-    Image { image: ImageData<'static>, hash: String },
+    Image {
+        image: ImageData<'static>,
+        hash: String,
+    },
     /// Paths of the copied files and folders, one per line
     Files(String),
 }
@@ -160,8 +163,5 @@ fn is_excluded_from_history() -> bool {
 }
 
 pub fn now_ms() -> i64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_millis() as i64)
-        .unwrap_or_default()
+    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as i64).unwrap_or_default()
 }

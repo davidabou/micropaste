@@ -44,23 +44,20 @@ pub fn file_preview_png(_path: &str, _thumbnail_size: u32, _icon_size: u32) -> O
 mod win {
     use std::mem::size_of;
 
-    use windows::core::HSTRING;
-    use windows::Win32::Graphics::Gdi::{
-        DeleteObject, GetDC, GetDIBits, GetObjectW, ReleaseDC, BITMAP, BITMAPINFO,
-        BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, HBITMAP, HDC,
-    };
     use windows::Win32::Foundation::SIZE;
-    pub use windows::Win32::UI::Shell::{SIIGBF_ICONONLY, SIIGBF_THUMBNAILONLY};
-    use windows::Win32::UI::Shell::{
-        IShellItemImageFactory, SHCreateItemFromParsingName, SHDefExtractIconW, SIIGBF,
+    use windows::Win32::Graphics::Gdi::{
+        BI_RGB, BITMAP, BITMAPINFO, BITMAPINFOHEADER, DIB_RGB_COLORS, DeleteObject, GetDC, GetDIBits, GetObjectW,
+        HBITMAP, HDC, ReleaseDC,
     };
+    use windows::Win32::UI::Shell::{IShellItemImageFactory, SHCreateItemFromParsingName, SHDefExtractIconW, SIIGBF};
+    pub use windows::Win32::UI::Shell::{SIIGBF_ICONONLY, SIIGBF_THUMBNAILONLY};
     use windows::Win32::UI::WindowsAndMessaging::{DestroyIcon, GetIconInfo, HICON, ICONINFO};
+    use windows::core::HSTRING;
 
     /// Returns `(width, height, rgba pixels)` of the executable's main icon.
     pub fn extract_rgba(exe_path: &str, size: u32) -> Option<(u32, u32, Vec<u8>)> {
         let mut icon = HICON::default();
-        let result =
-            unsafe { SHDefExtractIconW(&HSTRING::from(exe_path), 0, 0, Some(&mut icon), None, size) };
+        let result = unsafe { SHDefExtractIconW(&HSTRING::from(exe_path), 0, 0, Some(&mut icon), None, size) };
         if result.is_err() || icon.is_invalid() {
             return None;
         }
@@ -85,8 +82,8 @@ mod win {
         let pixels = bitmap_size(bitmap).and_then(|(width, height)| {
             let mut pixels = read_bgra(dc, bitmap, width, height)?;
             // Thumbnails of opaque pictures come without alpha channel
-            let opaque = pixels.chunks_exact(4).all(|px| px[3] == 0);
-            for px in pixels.chunks_exact_mut(4) {
+            let opaque = pixels.as_chunks::<4>().0.iter().all(|px| px[3] == 0);
+            for px in pixels.as_chunks_mut::<4>().0 {
                 if opaque {
                     px[3] = 255;
                 }
@@ -133,15 +130,15 @@ mod win {
         let mut pixels = read_bgra(dc, color, width, height)?;
 
         // Old icons have no alpha channel: take transparency from the mask instead
-        if pixels.chunks_exact(4).all(|px| px[3] == 0) {
+        if pixels.as_chunks::<4>().0.iter().all(|px| px[3] == 0) {
             let mask = read_bgra(dc, mask, width, height)?;
-            for (px, mask_px) in pixels.chunks_exact_mut(4).zip(mask.chunks_exact(4)) {
+            for (px, mask_px) in pixels.as_chunks_mut::<4>().0.iter_mut().zip(mask.as_chunks::<4>().0) {
                 px[3] = if mask_px[0] == 0 { 255 } else { 0 };
             }
         }
 
         // BGRA -> RGBA
-        for px in pixels.chunks_exact_mut(4) {
+        for px in pixels.as_chunks_mut::<4>().0 {
             px.swap(0, 2);
         }
         Some((width, height, pixels))
@@ -149,9 +146,8 @@ mod win {
 
     fn bitmap_size(bitmap: HBITMAP) -> Option<(u32, u32)> {
         let mut info = BITMAP::default();
-        let read = unsafe {
-            GetObjectW(bitmap.into(), size_of::<BITMAP>() as i32, Some((&mut info as *mut BITMAP).cast()))
-        };
+        let read =
+            unsafe { GetObjectW(bitmap.into(), size_of::<BITMAP>() as i32, Some((&mut info as *mut BITMAP).cast())) };
         (read != 0).then_some((info.bmWidth as u32, info.bmHeight.unsigned_abs()))
     }
 
@@ -169,9 +165,8 @@ mod win {
             ..Default::default()
         };
         let mut pixels = vec![0u8; (width * height * 4) as usize];
-        let lines = unsafe {
-            GetDIBits(dc, bitmap, 0, height, Some(pixels.as_mut_ptr().cast()), &mut info, DIB_RGB_COLORS)
-        };
+        let lines =
+            unsafe { GetDIBits(dc, bitmap, 0, height, Some(pixels.as_mut_ptr().cast()), &mut info, DIB_RGB_COLORS) };
         (lines != 0).then_some(pixels)
     }
 }

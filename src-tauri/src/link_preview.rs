@@ -5,7 +5,7 @@ use std::sync::OnceLock;
 use std::time::Duration;
 
 use reqwest::redirect::Policy;
-use reqwest::{header, Client, Response};
+use reqwest::{Client, Response, header};
 use scraper::{Html, Selector};
 use serde::Serialize;
 use url::{Host, Url};
@@ -47,9 +47,7 @@ fn is_public(url: &Url) -> bool {
         Some(Host::Domain(domain)) => {
             let domain = domain.to_ascii_lowercase();
             domain.contains('.')
-                && ![".localhost", ".local", ".internal", ".lan", ".home"]
-                    .iter()
-                    .any(|suffix| domain.ends_with(suffix))
+                && ![".localhost", ".local", ".internal", ".lan", ".home"].iter().any(|suffix| domain.ends_with(suffix))
         }
         Some(Host::Ipv4(ip)) => is_public_ip(IpAddr::V4(ip)),
         Some(Host::Ipv6(ip)) => is_public_ip(IpAddr::V6(ip)),

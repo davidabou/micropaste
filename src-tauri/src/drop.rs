@@ -60,12 +60,10 @@ fn files(app: &AppHandle, collection: i64, paths: &[String]) -> Result<Clip, Str
 /// paths. The page posts them with `chrome.webview.postMessageWithAdditionalObjects`.
 #[cfg(windows)]
 pub fn listen(window: &tauri::WebviewWindow) {
-    use webview2_com::Microsoft::Web::WebView2::Win32::{
-        ICoreWebView2File, ICoreWebView2WebMessageReceivedEventArgs2,
-    };
+    use webview2_com::Microsoft::Web::WebView2::Win32::{ICoreWebView2File, ICoreWebView2WebMessageReceivedEventArgs2};
     use webview2_com::WebMessageReceivedEventHandler;
-    use windows::core::{Interface, PWSTR};
     use windows::Win32::System::Com::CoTaskMemFree;
+    use windows::core::{Interface, PWSTR};
 
     // Reads a string allocated by WebView2, and frees it
     fn take(value: PWSTR) -> String {
@@ -95,7 +93,8 @@ pub fn listen(window: &tauri::WebviewWindow) {
             unsafe { objects.Count(&mut count) }?;
             let mut paths = Vec::new();
             for index in 0..count {
-                let Ok(file) = unsafe { objects.GetValueAtIndex(index) }.and_then(|item| item.cast::<ICoreWebView2File>())
+                let Ok(file) =
+                    unsafe { objects.GetValueAtIndex(index) }.and_then(|item| item.cast::<ICoreWebView2File>())
                 else {
                     continue;
                 };

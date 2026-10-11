@@ -6,15 +6,15 @@ mod db;
 mod drag_out;
 mod drop;
 mod history;
-mod snap_layouts;
-mod window_icon;
 mod images;
 mod link_preview;
+mod snap_layouts;
 mod source_app;
+mod window_icon;
 
 use std::sync::Mutex;
 
-use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
+use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
 use tauri::Manager;
 use window_vibrancy::apply_mica;
 
@@ -158,8 +158,8 @@ async fn get_file_preview(db: tauri::State<'_, Db>, path: String) -> Result<File
     let preview = tauri::async_runtime::spawn_blocking(move || {
         app_icon::file_preview_png(&path, app_icon::THUMBNAIL_SIZE, app_icon::FILE_ICON_SIZE)
     })
-        .await
-        .map_err(|e| e.to_string())?;
+    .await
+    .map_err(|e| e.to_string())?;
     Ok(match preview {
         Some((png, thumbnail)) => FilePreview { image: Some(png_data_url(&png)), thumbnail },
         None => FilePreview { image: None, thumbnail: false },
@@ -271,10 +271,10 @@ async fn load_link_preview(
     db::save_link_preview(&conn, &preview, clipboard::now_ms()).map_err(|e| e.to_string())?;
 
     // The website changed its image: delete the old one unless something else uses it
-    if let Some(old_image) = old_image.filter(|old| preview.image.as_ref() != Some(old)) {
-        if !db::is_image_file_used(&conn, &old_image).unwrap_or(true) {
-            let _ = images::remove_file(&images_dir, &old_image);
-        }
+    if let Some(old_image) = old_image.filter(|old| preview.image.as_ref() != Some(old))
+        && !db::is_image_file_used(&conn, &old_image).unwrap_or(true)
+    {
+        let _ = images::remove_file(&images_dir, &old_image);
     }
     Ok(Some(preview))
 }
