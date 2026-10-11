@@ -17,6 +17,10 @@ export default defineNuxtConfig({
     typedPages: true
   },
   css: ['@/assets/css/main.css'],
+  typescript: {
+    // Checked with Node's types, like this file
+    nodeTsConfig: { include: ['../bump.config.ts'] }
+  },
   fonts: {
     defaults: {
       weights: ['400 700'],
