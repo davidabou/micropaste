@@ -21,7 +21,7 @@ Local-first, fast, with a premium, native Windows 11 design (inspired by Supaste
 - **Tauri 2** (Rust, `src-tauri/`, crate `Micropaste`, lib `tauri_app_lib`).
   - The identifier `com.abou.micropaste` must **not** change: the data lives in `%APPDATA%\com.abou.micropaste`.
   - Build: `bun run tauri build`, NSIS installer in `src-tauri/target/release/bundle/nsis/`.
-  - Release: `bun run release` (bumpp, see `bump.config.ts`) asks for the new version, writes it in `package.json`, `tauri.conf.json`, `Cargo.toml` and `Cargo.lock`, then commits and tags it (`v0.2.0`). It refuses to run with uncommitted changes. Then `git push --follow-tags`: `release.yml` builds the installer into a draft GitHub release.
+  - Release: `bun run release` (bumpp, see `bump.config.ts`) asks for the new version, writes it in `package.json`, `tauri.conf.json`, `Cargo.toml` and `Cargo.lock`, then commits and tags it (`v0.2.0`). It refuses to run with uncommitted changes. Then `git push --follow-tags`: `release.yml` builds the installer into a draft GitHub release, with release notes written by changelogithub from the `feat:` and `fix:` commits since the previous tag.
 - **Nuxt 4** (`app/`, static output via `nuxt generate`), **Tailwind v4**.
 - **Reka UI** (`reka-ui/nuxt`) for Dialog, ContextMenu, Tooltip, AlertDialog…
 - **motion-v** (`motion-v/nuxt`) for all animations (springs).

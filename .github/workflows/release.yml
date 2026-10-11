@@ -14,6 +14,9 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          # The whole history and tags: the changelog lists the commits since the previous tag
+          fetch-depth: 0
 
       - name: Check the tag matches the app version
         shell: bash
@@ -35,6 +38,19 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      # Release notes from the feat: and fix: commits since the previous tag
+      - name: Write the changelog
+        id: changelog
+        shell: bash
+        run: |
+          bunx changelogithub --to "$GITHUB_REF_NAME" --output changelog.md
+          {
+            echo 'notes<<EOF'
+            cat changelog.md
+            echo
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
       - uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -42,5 +58,8 @@ jobs:
           tauriScript: bun tauri
           tagName: ${{ github.ref_name }}
           releaseName: Micropaste ${{ github.ref_name }}
-          releaseBody: See the assets below to download and install Micropaste.
+          releaseBody: |
+            ${{ steps.changelog.outputs.notes }}
+
+            Download the `x64-setup.exe` installer below to install Micropaste.
           releaseDraft: true

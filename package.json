@@ -32,6 +32,7 @@
     "@tauri-apps/cli": "^2",
     "@types/node": "^26.6.5",
     "bumpp": "^12.3.0",
+    "changelogithub": "^15.0.5",
     "typescript": "^6.0.3",
     "vue-tsc": "^3.3.13"
   }
