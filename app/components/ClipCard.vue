@@ -91,6 +91,22 @@ const dragging = ref(false)
 const tileSpring = { type: 'spring', bounce: 0, duration: 0.2 } as const
 const stopDragging = () => (dragging.value = false)
 
+// Shrinks a little while pressed. Followed by hand rather than with Motion's `whilePress`: once
+// a drag starts, the button never gets its `pointerup`, and `whilePress` would stay shrunk after it
+const pressed = ref(false)
+const release = () => {
+  pressed.value = false
+  window.removeEventListener('pointerup', release)
+  window.removeEventListener('pointercancel', release)
+}
+function press(event: PointerEvent) {
+  if (event.button !== 0) return
+  pressed.value = true
+  window.addEventListener('pointerup', release)
+  window.addEventListener('pointercancel', release)
+}
+onBeforeUnmount(release)
+
 watch(dragging, (isDragging) => {
   // Lets the window accept the drag while it passes over it
   tileDragging.value = isDragging
@@ -122,6 +138,7 @@ function setDragLabel(dataTransfer: DataTransfer) {
 }
 
 async function onDragStart(event: DragEvent) {
+  release()
   dragging.value = true
   // Right away, not on the next update: the window checks it from the first `dragover`
   tileDragging.value = true
@@ -230,10 +247,10 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
       type="button"
       class="peer relative flex w-full cursor-pointer flex-col overflow-hidden rounded-lg border border-black/[5.78%] bg-black/[3.73%] dark:border-white/6 text-left transition-[background-color,box-shadow] duration-100 hover:bg-black/[5.78%] hover:ring-2 hover:ring-black/10 focus-visible:outline-2 focus-visible:outline-current dark:bg-white/[6.05%] dark:hover:bg-white/[8.37%] dark:hover:ring-white/15"
       :class="isList ? 'h-14' : 'h-44'"
-      :animate="dragging ? { rotate: isList ? 0 : 1, scale: 0.96, opacity: 0.8 } : { rotate: 0, scale: 1, opacity: 1 }"
-      :while-press="dragging ? undefined : { scale: 0.98 }"
+      :animate="dragging ? { rotate: isList ? 0 : 1, scale: 0.96, opacity: 0.8 } : { rotate: 0, scale: pressed ? 0.98 : 1, opacity: 1 }"
       :transition="tileSpring"
       draggable="true"
+      @pointerdown="press"
       @click="copy"
       @dragstart="onDragStart"
       @dragend="dragging = false"
