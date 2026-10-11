@@ -9,19 +9,19 @@ Local-first, fast, with a premium, native Windows 11 design (inspired by Supaste
 
 - The app UI is in **English**.
 - **Do not launch the app** (`bun run tauri dev`), nor screenshot or monitor it: the user tests it themself. Stick to static checks:
-  - `cargo check` in `src-tauri/`;
-  - `bunx nuxt prepare`;
-  - vue-tsc: `vue-tsc --noEmit -p .nuxt/tsconfig.app.json` (not installed in the project).
+  - `bun run typecheck`;
+  - in `src-tauri/`: `cargo fmt` and `cargo clippy --all-targets -- -D warnings`.
 - Package manager: **Bun** only (no pnpm or npm).
 - The user often edits files themself: re-read before editing, and keep their changes.
 - Look at the code directly instead of guessing.
-- No git repository.
+- CI (`.github/workflows/ci.yml`) fails on type errors, unformatted Rust or any clippy warning.
 
 ## Stack
 
 - **Tauri 2** (Rust, `src-tauri/`, crate `tauri-app`, lib `tauri_app_lib`).
   - The identifier `com.abou.micropaste` must **not** change: the data lives in `%APPDATA%\com.abou.micropaste`.
   - Build: `bun run tauri build`, NSIS installer in `src-tauri/target/release/bundle/nsis/`.
+  - Release: bump `version` in `tauri.conf.json`, then push a matching tag (`v0.2.0`): `release.yml` builds the installer into a draft GitHub release.
 - **Nuxt 4** (`app/`, static output via `nuxt generate`), **Tailwind v4**.
 - **Reka UI** (`reka-ui/nuxt`) for Dialog, ContextMenu, Tooltip, AlertDialog…
 - **motion-v** (`motion-v/nuxt`) for all animations (springs).
