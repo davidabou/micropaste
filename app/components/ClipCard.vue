@@ -115,26 +115,21 @@ watch(dragging, (isDragging) => {
 })
 onBeforeUnmount(() => window.removeEventListener('pointermove', stopDragging))
 
-// Image under the pointer while dragging text: a compact label with the start of the text (and the
-// color of a color). Left to itself, the webview snapshots the tile wrongly, the whole page moving along
-const dragLabelClass = 'fixed -top-96 left-0 flex max-w-64 items-center gap-2 rounded-lg border border-black/[5.78%] bg-[#f9f9f9] px-3 py-2 font-ui text-sm shadow-lg dark:border-black/20 dark:bg-[#2c2c2c]'
-function setDragLabel(dataTransfer: DataTransfer) {
-  const label = document.createElement('div')
-  label.className = dragLabelClass
-  if (color.value) {
-    const swatch = document.createElement('span')
-    swatch.className = 'size-4 shrink-0 rounded-sm border border-black/10'
-    swatch.style.background = color.value.css
-    label.append(swatch)
-  }
-  const text = document.createElement('span')
-  text.className = 'truncate'
-  text.textContent = listTitle.value
-  label.append(text)
-  // Snapshotted by the webview right away, then no longer needed
-  document.body.append(label)
-  dataTransfer.setDragImage(label, 12, 12)
-  requestAnimationFrame(() => label.remove())
+// The tile itself follows the pointer, held where it was grabbed. Left to itself, the webview
+// snapshots it wrongly, the whole page moving along. Its background is see-through over the Mica,
+// which isn't in the snapshot: the tile is made opaque, in the same color, just for the snapshot
+function setDragImage(event: DragEvent) {
+  const tile = event.currentTarget as HTMLElement
+  const rect = tile.getBoundingClientRect()
+  Object.assign(tile.style, {
+    transition: 'none',
+    backgroundColor: prefersDark.value ? '#2e2e2e' : '#eaeaea',
+    // Without the hover ring, which would be cut at the edges
+    boxShadow: 'none'
+  })
+  event.dataTransfer!.setDragImage(tile, event.clientX - rect.left, event.clientY - rect.top)
+  // Snapshotted once this event is over
+  requestAnimationFrame(() => Object.assign(tile.style, { transition: '', backgroundColor: '', boxShadow: '' }))
 }
 
 async function onDragStart(event: DragEvent) {
@@ -146,7 +141,7 @@ async function onDragStart(event: DragEvent) {
   if (props.clip.kind === 'text') {
     event.dataTransfer?.setData('text/plain', props.clip.content)
     if (link.value) event.dataTransfer?.setData('text/uri-list', link.value)
-    if (event.dataTransfer) setDragLabel(event.dataTransfer)
+    if (event.dataTransfer) setDragImage(event)
     // `dragend` doesn't always reach the page once dropped in another app. The page gets
     // no mouse moves during a webview drag, so the first one back means the drag is over.
     // Next frame: skips a move that might still come along with the drag start
