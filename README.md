@@ -15,6 +15,10 @@ and ready to reuse in a single click or drag.
 ![Nuxt 4](https://img.shields.io/badge/Nuxt-4-00DC82?logo=nuxt&logoColor=white)
 ![Local-first](https://img.shields.io/badge/data-local--first-6E56CF)
 
+<br>
+
+![Copying a file in the Explorer: it shows up in Micropaste with its thumbnail](.github/assets/copy.gif)
+
 </div>
 
 ---
@@ -48,6 +52,8 @@ Each card shows the app it was copied from and when.
 - **Drag** a card straight into any app: text, images and files drop where you need them.
 - **Right-click** for the full menu: copy, details, favorite, add to collections, delete.
 
+![Dragging pictures from Micropaste into an email](.github/assets/drag.gif)
+
 ### 🗂️ Collections
 
 Group clips into your own collections, shown as tabs next to your history.
@@ -57,10 +63,14 @@ Group clips into your own collections, shown as tabs next to your history.
 - Drop files, text or pictures **from other apps** straight into a collection.
 - Clips in a collection are kept forever.
 
+![Creating a collection and adding a clip to it](.github/assets/collections.gif)
+
 ### ⭐ Favorites and search
 
 - Star the clips you use all the time, then show only your favorites in one click.
 - **Ctrl+F** searches through everything, including the titles of link previews.
+
+![Searching the history](.github/assets/search.gif)
 
 ### 🔍 Details panel
 
@@ -70,13 +80,13 @@ File groups get a carousel you can browse with the arrow keys.
 ### 🪟 Feels at home on Windows 11
 
 - Native look: Mica background, Windows 11 tooltips, smooth spring animations, light and dark themes.
-- **Snap Layouts** when hovering the Maximize button.
 - Lives quietly in the **system tray**: closing the window just hides it, and it can start with Windows.
 - Grid or list layout, your choice.
 
 ### 🧹 Tidy by itself
 
-Clips you haven't used in **30 days** are cleaned up automatically. Favorites and clips in collections are never touched.
+Clips you haven't used in **30 days** are cleaned up automatically: choose anything from 1 day to forever in the settings.
+Favorites and clips in collections are never touched.
 
 ## Installation
 
@@ -91,7 +101,7 @@ Your data is stored locally in `%APPDATA%\com.abou.micropaste`.
 
 | Shortcut | Action |
 | --- | --- |
-| <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>V</kbd> | Show Micropaste from anywhere, or hide it |
+| <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>V</kbd> | Show Micropaste from anywhere, or hide it (can be changed in the settings) |
 | <kbd>Ctrl</kbd> + <kbd>F</kbd> | Search |
 | <kbd>Esc</kbd> | Clear the search, close a panel or a confirmation |
 | <kbd>←</kbd> <kbd>→</kbd> | Browse the files of a group in the details panel |
