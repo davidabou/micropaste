@@ -258,7 +258,8 @@ pub fn link_preview(conn: &Connection, url: &str) -> rusqlite::Result<Option<Lin
 pub fn is_image_file_used(conn: &Connection, file: &str) -> rusqlite::Result<bool> {
     conn.query_row(
         "SELECT EXISTS (SELECT 1 FROM link_previews WHERE image = ?1)
-             OR EXISTS (SELECT 1 FROM clips WHERE kind = 'image' AND content || '.png' = ?1)",
+             OR EXISTS (SELECT 1 FROM clips WHERE kind = 'image' AND content || '.png' = ?1)
+             OR EXISTS (SELECT 1 FROM clips WHERE kind = 'files' AND instr(content, ?1) > 0)",
         params![file],
         |row| row.get(0),
     )
