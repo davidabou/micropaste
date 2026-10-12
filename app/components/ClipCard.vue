@@ -207,8 +207,10 @@ const fileStack = computed(() => {
 
 // Image shown across the whole tile: a copied image, or the image of a link preview
 const coverImage = computed(() => (isImage.value ? `${props.clip.content}.png` : preview.value?.image ?? null))
-// Pictures or colors behind the footer, which then needs a gradient to stay readable
+// Pictures or colors behind the footer
 const hasCover = computed(() => coverImage.value !== null || fileThumbnail.value !== null || color.value !== null)
+// Over a plain color, the footer text takes the most readable of dark and white. Over pictures, a gradient keeps it readable
+const footerText = computed(() => (color.value ? (isLightColor(color.value.css) ? 'text-black/90' : 'text-white') : null))
 const title = computed(() => preview.value?.title ?? fileTitle.value ?? color.value?.value)
 // List rows show a single line of text for every clip
 const isList = computed(() => props.layout === 'list')
@@ -372,11 +374,11 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
         </div>
 
         <!-- Source app and copy time, pinned to the bottom. Over images, a gradient (white or black,
-             following the theme) keeps it readable. Kept sharp and above "Copied" -->
+             following the theme) keeps it readable, over colors the text color. Kept sharp and above "Copied" -->
         <footer
           class="absolute inset-x-0 bottom-0 z-10 px-3 py-2"
           :class="[
-            hasCover && 'bg-linear-to-t from-white/90 via-white/60 to-transparent pt-8 dark:from-black/85 dark:via-black/50',
+            footerText ?? (hasCover && 'bg-linear-to-t from-white/90 via-white/60 to-transparent pt-8 dark:from-black/85 dark:via-black/50'),
           ]"
         >
           <!-- One line, cut with an ellipsis: the full title shows on hover -->
