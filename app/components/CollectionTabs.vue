@@ -86,34 +86,57 @@ async function commit() {
 }
 const cancel = () => (editing.value = null)
 
-const deleting = ref<Collection | null>(null)
-// Kept apart: the dialog clears `deleting` as it closes, before the Delete click is handled
-let deletingId: number | null = null
+const confirmingDelete = ref<number | null>(null)
+const deleteBubbleFor = ref<number | null>(null)
+const deleteFromWidth = ref(0)
+const deleteToWidth = ref(0)
+const setDeleteContent = (el: unknown) => {
+  const node = ((el as { $el?: HTMLElement } | null)?.$el ?? el) as HTMLElement | null
+  if (node) deleteToWidth.value = node.offsetWidth
+}
 async function removeCollection(id: number) {
   const collection = collections.value.find(c => c.id === id)
   if (collection?.count) {
-    deleting.value = collection
-    deletingId = id
+    deleteFromWidth.value = document.querySelector<HTMLElement>(`[data-collection-tab="${id}"]`)?.offsetWidth ?? 0
+    deleteToWidth.value = 0
+    confirmingDelete.value = id
+    deleteBubbleFor.value = id
     return
   }
   await deleteCollection(id)
 }
-function confirmDeleteCollection() {
-  if (deletingId !== null) deleteCollection(deletingId)
-  deletingId = null
+async function confirmDelete(id: number) {
+  await deleteCollection(id)
+  confirmingDelete.value = null
+  deleteBubbleFor.value = null
+}
+const cancelDeleteOnEscape = (event: KeyboardEvent) => {
+  if (event.key === 'Escape') confirmingDelete.value = null
+}
+const cancelDeleteOnOutsideClick = (event: PointerEvent) => {
+  if (!(event.target as Element | null)?.closest('[data-collection-delete-confirm]')) confirmingDelete.value = null
+}
+function stopListeningForCancel() {
+  window.removeEventListener('keydown', cancelDeleteOnEscape)
+  window.removeEventListener('pointerdown', cancelDeleteOnOutsideClick, true)
+}
+watch(confirmingDelete, (id) => {
+  stopListeningForCancel()
+  if (id === null) return
+  window.addEventListener('keydown', cancelDeleteOnEscape)
+  window.addEventListener('pointerdown', cancelDeleteOnOutsideClick, true)
+})
+onBeforeUnmount(stopListeningForCancel)
+function onDeleteBubbleAnimated() {
+  if (confirmingDelete.value === null) deleteBubbleFor.value = null
 }
 async function deleteCollection(id: number) {
-  deleting.value = null
   if (selected.value === id) selected.value = null
   await remove(id)
 }
-const clipCount = (count: number) => `${formatCount(count)} ${count === 1 ? 'clip' : 'clips'}`
-
-const dialogMotion = {
-  initial: { opacity: 0, scale: 0.9 },
-  animate: { opacity: 1, scale: 1, transition: { type: 'spring' as const, bounce: 0.3, visualDuration: 0.22 } },
-  exit: { opacity: 0, scale: 0.95, transition: { type: 'spring' as const, bounce: 0, visualDuration: 0.12 } }
-}
+const textButton = 'cursor-pointer rounded-sm text-xs font-medium transition-opacity duration-100 hover:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current'
+const tabLabelHidden = { opacity: 0, scale: 0.9, transition: { duration: 0.12 } }
+const tabLabelShown = { opacity: 1, scale: 1, transition: { duration: 0.15, delay: 0.15 } }
 
 // No overflow clipping on the tab itself (the name is truncated inside): the sliding pill would be cut
 const trigger = 'relative isolate flex h-8 items-center max-w-48 shrink-0 cursor-pointer rounded-md px-3 text-sm font-medium opacity-60 transition-opacity duration-100 hover:opacity-100 focus-visible:outline-2 focus-visible:outline-current data-[state=active]:opacity-100'
@@ -171,7 +194,7 @@ const tabSlide = { type: 'spring', bounce: 0.2, duration: 0.4 } as const
               layout="position"
               class="shrink-0 rounded-md transition-colors duration-100"
               :class="dropTarget === collection.id && 'bg-black/8 dark:bg-white/11'"
-              :drag="editing === collection.id ? false : 'x'"
+              :drag="editing === collection.id || deleteBubbleFor === collection.id ? false : 'x'"
               :initial="tabPop.initial"
               :animate="tabPop.animate"
               :exit="tabPop.exit"
@@ -183,7 +206,43 @@ const tabSlide = { type: 'spring', bounce: 0.2, duration: 0.4 } as const
               @drop="onTileDrop($event, collection.id)"
             >
               <Motion
-                v-if="editing === collection.id"
+                v-if="deleteBubbleFor === collection.id"
+                data-collection-delete-confirm
+                class="relative flex h-8 items-center overflow-hidden bg-black/[5.78%] dark:bg-white/[8.37%]"
+                :style="{ borderRadius: '6px' }"
+                :initial="{ width: deleteFromWidth }"
+                :animate="{ width: confirmingDelete === collection.id ? deleteToWidth || deleteFromWidth : deleteFromWidth }"
+                :transition="morph"
+                @animation-complete="onDeleteBubbleAnimated"
+              >
+                <Motion
+                  class="pointer-events-none absolute inset-y-0 left-0 flex items-center px-3 text-sm font-medium"
+                  :initial="{ opacity: 1, scale: 1 }"
+                  :animate="confirmingDelete === collection.id ? tabLabelHidden : tabLabelShown"
+                >
+                  <span class="flex items-baseline gap-1.5 whitespace-nowrap" :class="tab !== String(collection.id) && 'opacity-60'">
+                    <span class="max-w-36 truncate">{{ collection.name }}</span>
+                    <span class="text-xs font-normal tabular-nums opacity-60">{{ formatCount(collection.count) }}</span>
+                  </span>
+                </Motion>
+                <Motion
+                  v-if="confirmingDelete === collection.id"
+                  :ref="setDeleteContent"
+                  class="flex w-max shrink-0 items-center gap-3 px-3 whitespace-nowrap"
+                  :initial="{ opacity: 0 }"
+                  :animate="{ opacity: 1, transition: { delay: 0.1, duration: 0.15 } }"
+                >
+                  <span class="text-sm font-medium">Delete “{{ collection.name }}”?</span>
+                  <button type="button" :class="textButton" @click="confirmingDelete = null">
+                    Cancel
+                  </button>
+                  <button type="button" :class="textButton" @click="confirmDelete(collection.id)">
+                    Delete
+                  </button>
+                </Motion>
+              </Motion>
+              <Motion
+                v-else-if="editing === collection.id"
                 :initial="{ width: renameFromWidth || nameWidth }"
                 :animate="{ width: nameWidth }"
                 :transition="morph"
@@ -295,44 +354,5 @@ const tabSlide = { type: 'spring', bounce: 0.2, duration: 0.4 } as const
         </Tooltip>
       </LayoutGroup>
     </TabsList>
-
-    <AlertDialogRoot :open="deleting !== null" @update:open="open => !open && (deleting = null)">
-      <AlertDialogPortal force-mount>
-        <AnimatePresence>
-          <AlertDialogOverlay v-if="deleting" key="overlay" force-mount as-child>
-            <Motion
-              class="fixed inset-0 z-50 bg-black/30"
-              :initial="{ opacity: 0 }"
-              :animate="{ opacity: 1 }"
-              :exit="{ opacity: 0 }"
-              :transition="{ duration: 0.15 }"
-            />
-          </AlertDialogOverlay>
-          <AlertDialogContent v-if="deleting" key="content" force-mount as-child>
-            <Motion
-              v-bind="dialogMotion"
-              class="fixed top-1/2 left-1/2 z-50 w-88 -translate-x-1/2 -translate-y-1/2 rounded-lg border border-black/[5.78%] bg-[#f9f9f9] p-5 font-ui shadow-xl dark:border-black/20 dark:bg-[#2c2c2c]"
-            >
-              <AlertDialogTitle class="truncate text-base font-semibold">
-                Delete “{{ deleting.name }}”?
-              </AlertDialogTitle>
-              <AlertDialogDescription class="mt-2 text-sm opacity-80">
-                Its {{ clipCount(deleting.count) }} will stay in your history.
-              </AlertDialogDescription>
-              <div class="mt-5 flex justify-end gap-2">
-                <AlertDialogCancel as-child>
-                  <Button>Cancel</Button>
-                </AlertDialogCancel>
-                <AlertDialogAction as-child>
-                  <Button variant="filled" @click="confirmDeleteCollection">
-                    Delete
-                  </Button>
-                </AlertDialogAction>
-              </div>
-            </Motion>
-          </AlertDialogContent>
-        </AnimatePresence>
-      </AlertDialogPortal>
-    </AlertDialogRoot>
   </TabsRoot>
 </template>
