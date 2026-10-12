@@ -318,7 +318,7 @@ const thumbSpring = { type: 'spring', bounce: 0.15, duration: 0.3 } as const
             </div>
             <SwitchRoot
               :model-value="settings.launchAtStartup"
-              class="flex h-5 w-9 shrink-0 cursor-pointer items-center justify-self-end rounded-full bg-black/[9%] transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current data-[state=checked]:bg-black/85 dark:bg-white/[11%] dark:data-[state=checked]:bg-white"
+              class="flex h-5 w-9 shrink-0 cursor-pointer items-center justify-self-end rounded-full bg-black/9 transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current data-[state=checked]:bg-black/85 dark:bg-white/11 dark:data-[state=checked]:bg-white"
               @update:model-value="setLaunchAtStartup"
             >
               <Motion
