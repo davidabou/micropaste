@@ -8,7 +8,6 @@ mod drop;
 mod history;
 mod images;
 mod link_preview;
-mod snap_layouts;
 mod source_app;
 mod window_icon;
 
@@ -160,11 +159,6 @@ async fn get_file_preview(db: tauri::State<'_, Db>, path: String) -> Result<File
 #[tauri::command]
 async fn start_drag(app: tauri::AppHandle, window: tauri::Window, id: i64) -> Result<(), String> {
     drag_out::start(&app, window, id)
-}
-
-#[tauri::command]
-async fn show_snap_layouts(button: snap_layouts::ButtonRect) {
-    snap_layouts::show(button);
 }
 
 #[tauri::command]
@@ -325,7 +319,6 @@ pub fn run() {
             delete_clip,
             get_file_preview,
             start_drag,
-            show_snap_layouts,
             drop_text,
             drop_image,
             get_link_preview,

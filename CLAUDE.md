@@ -44,7 +44,6 @@ Local-first, fast, with a premium, native Windows 11 design (inspired by Supaste
 | `source_app.rs` | Source app (foreground app) |
 | `link_preview.rs` | Link previews |
 | `background.rs` | Tray icon, close = hide, autostart, single-instance, `--hidden`, Alt+Shift+V global shortcut, window placed in the bottom right corner at launch |
-| `snap_layouts.rs` | Hovering the Maximize button: Win+Z via SendInput |
 | `window_icon.rs` | Sharp window icon at the right DPI |
 | `app_icon.rs` | Source app icons, and file thumbnails as the Explorer shows them |
 
