@@ -228,10 +228,11 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
 </script>
 
 <template>
-  <!-- Wrapper: the delete button can't sit inside the tile button -->
+  <!-- Wrapper: the delete button can't sit inside the tile button.
+       isolate: the footer and overlay z-indexes stay inside the tile, not above a tile sliding over it -->
   <div
     ref="root"
-    class="group relative"
+    class="group relative isolate"
     @pointerenter="hovered = true"
     @pointerleave="hovered = false"
     @focusin="focused = ($event.target as Element).matches(':focus-visible')"
