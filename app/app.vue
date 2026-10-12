@@ -110,13 +110,20 @@ async function onDrop(event: DragEvent) {
   if (text.trim()) await dropIntoCollection(id, { text }).catch(() => {})
 }
 
+function onContextMenu(event: MouseEvent) {
+  if (import.meta.dev || (event.target as Element).closest('input, textarea')) return
+  event.preventDefault()
+}
+
 onMounted(() => {
+  window.addEventListener('contextmenu', onContextMenu)
   window.addEventListener('keydown', onKeydown)
   window.addEventListener('dragover', onDragOver)
   window.addEventListener('drop', onDrop)
   window.addEventListener('dragleave', onDragLeave)
 })
 onBeforeUnmount(() => {
+  window.removeEventListener('contextmenu', onContextMenu)
   window.removeEventListener('keydown', onKeydown)
   window.removeEventListener('dragover', onDragOver)
   window.removeEventListener('drop', onDrop)
