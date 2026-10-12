@@ -1,14 +1,23 @@
+use std::sync::atomic::Ordering;
+
 use tauri::image::Image;
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem};
 use tauri::plugin::TauriPlugin;
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::{App, AppHandle, Manager, PhysicalPosition, WebviewWindow, WindowEvent, Wry};
+use tauri::{App, AppHandle, Emitter, Manager, PhysicalPosition, WebviewWindow, WindowEvent, Wry};
 use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
+use crate::settings;
+
 pub const HIDDEN_ARG: &str = "--hidden";
 
-pub const SHORTCUT: &str = "Alt+Shift+V";
+pub const LAUNCH_AT_STARTUP_EVENT: &str = "launch-at-startup-changed";
+
+struct TrayItems {
+    open: MenuItem<Wry>,
+    startup: CheckMenuItem<Wry>,
+}
 
 pub fn show_window(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
@@ -33,7 +42,7 @@ fn toggle_window(app: &AppHandle) {
 pub fn shortcut_plugin() -> TauriPlugin<Wry> {
     tauri_plugin_global_shortcut::Builder::new()
         .with_handler(|app, _shortcut, event| {
-            if event.state == ShortcutState::Pressed {
+            if event.state == ShortcutState::Pressed && !settings::RECORDING_SHORTCUT.load(Ordering::Relaxed) {
                 toggle_window(app);
             }
         })
@@ -57,12 +66,13 @@ pub fn setup(app: &mut App) -> tauri::Result<()> {
         let _ = window.show();
     }
 
-    if let Err(e) = app.global_shortcut().register(SHORTCUT) {
-        eprintln!("[shortcut] cannot register {SHORTCUT}: {e}");
+    let shortcut = settings::shortcut(app.handle());
+    if let Err(e) = app.global_shortcut().register(shortcut.as_str()) {
+        eprintln!("[shortcut] cannot register {shortcut}: {e}");
     }
 
     enable_launch_at_startup_once(app);
-    create_tray(app)
+    create_tray(app, &shortcut)
 }
 
 const SCREEN_MARGIN: f64 = 12.0;
@@ -92,12 +102,21 @@ fn enable_launch_at_startup_once(app: &App) {
     }
 }
 
-fn create_tray(app: &App) -> tauri::Result<()> {
-    let open = MenuItem::with_id(app, "open", "Open Micropaste", true, Some(SHORTCUT))?;
+pub fn show_shortcut_in_tray(app: &AppHandle, shortcut: &str) {
+    let _ = app.state::<TrayItems>().open.set_accelerator(Some(shortcut));
+}
+
+pub fn show_launch_at_startup_in_tray(app: &AppHandle, enabled: bool) {
+    let _ = app.state::<TrayItems>().startup.set_checked(enabled);
+}
+
+fn create_tray(app: &App, shortcut: &str) -> tauri::Result<()> {
+    let open = MenuItem::with_id(app, "open", "Open Micropaste", true, Some(shortcut))?;
     let startup_enabled = app.autolaunch().is_enabled().unwrap_or(false);
     let startup = CheckMenuItem::with_id(app, "startup", "Launch at startup", true, startup_enabled, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Quit Micropaste", true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&open, &PredefinedMenuItem::separator(app)?, &startup, &quit])?;
+    app.manage(TrayItems { open, startup });
 
     let icon = Image::from_bytes(include_bytes!("../icons/32x32.png"))?;
 
@@ -111,13 +130,13 @@ fn create_tray(app: &App) -> tauri::Result<()> {
                 show_window(tray.app_handle());
             }
         })
-        .on_menu_event(move |app, event| match event.id.as_ref() {
+        .on_menu_event(|app, event| match event.id.as_ref() {
             "open" => show_window(app),
             "startup" => {
-                let launcher = app.autolaunch();
-                let enabled = launcher.is_enabled().unwrap_or(false);
-                let _ = if enabled { launcher.disable() } else { launcher.enable() };
-                let _ = startup.set_checked(launcher.is_enabled().unwrap_or(false));
+                let enabled = app.autolaunch().is_enabled().unwrap_or(false);
+                if let Ok(enabled) = settings::set_launch_at_startup(app, !enabled) {
+                    let _ = app.emit(LAUNCH_AT_STARTUP_EVENT, enabled);
+                }
             }
             "quit" => app.exit(0),
             _ => {}

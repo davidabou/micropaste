@@ -7,8 +7,9 @@ use tauri::{AppHandle, Emitter, Manager};
 use crate::clipboard::now_ms;
 use crate::db::{self, Db};
 use crate::images;
+use crate::settings;
 
-const RETENTION_MS: i64 = 30 * 24 * 60 * 60 * 1000;
+const DAY_MS: i64 = 24 * 60 * 60 * 1000;
 const PURGE_INTERVAL: Duration = Duration::from_secs(60 * 60);
 
 pub const CLIPS_REMOVED_EVENT: &str = "clips-removed";
@@ -35,17 +36,22 @@ pub fn start_cleanup(app: AppHandle) {
     });
 }
 
-fn purge_or_log(app: &AppHandle) {
+pub fn expiring_count(conn: &Connection, days: u32) -> rusqlite::Result<usize> {
+    db::expired(conn, now_ms() - i64::from(days) * DAY_MS).map(|ids| ids.len())
+}
+
+pub fn purge_or_log(app: &AppHandle) {
     if let Err(e) = purge(app) {
         eprintln!("[history] cleanup failed: {e}");
     }
 }
 
 fn purge(app: &AppHandle) -> Result<(), String> {
+    let Some(days) = settings::retention_days(app) else { return Ok(()) };
     let removed = {
         let db = app.state::<Db>();
         let conn = db.0.lock().unwrap();
-        let expired = db::expired(&conn, now_ms() - RETENTION_MS).map_err(|e| e.to_string())?;
+        let expired = db::expired(&conn, now_ms() - i64::from(days) * DAY_MS).map_err(|e| e.to_string())?;
         let mut removed = Vec::with_capacity(expired.len());
         for id in expired {
             match remove(app, &conn, id) {

@@ -37,20 +37,21 @@ Local-first, fast, with a premium, native Windows 11 design (inspired by Supaste
 | `clipboard.rs` | Clipboard watching, saving copies |
 | `copy.rs` | Copying a clip back; `is_own_copy` ignores copies made from tiles |
 | `db.rs` | SQLite, migrations via `user_version` (bump it for any schema change) |
-| `history.rs` | Cleanup: unused for 30 days, except favorites and clips in collections; at startup then hourly, emits `clips-removed` |
+| `history.rs` | Cleanup: unused for the retention set in the settings (30 days by default), except favorites and clips in collections; at startup then hourly, emits `clips-removed` |
 | `images.rs` | Images stored as PNG by hash in `$APPDATA/images` |
 | `drag_out.rs` | Native drag of images and files to other apps |
 | `drop.rs` | External drop into a collection (files via WebView2 `postMessageWithAdditionalObjects`, text, images) |
 | `source_app.rs` | Source app (foreground app) |
 | `link_preview.rs` | Link previews |
-| `background.rs` | Tray icon, close = hide, autostart, single-instance, `--hidden`, Alt+Shift+V global shortcut, window placed in the bottom right corner at launch |
+| `settings.rs` | Settings stored in the `settings` table: global shortcut, history retention, launch at startup |
+| `background.rs` | Tray icon, close = hide, autostart, single-instance, `--hidden`, global shortcut (Alt+Shift+V by default), window placed in the bottom right corner at launch |
 | `window_icon.rs` | Sharp window icon at the right DPI |
 | `app_icon.rs` | Source app icons, and file thumbnails as the Explorer shows them |
 
 ### Frontend (`app/`)
 
 - `app.vue`: tabs, History grid always mounted, collection grids, search, favorites filter, grid/list layout, external drop.
-- `components/`: `ClipCard` (tile), `ClipGrid`, `ClipContextMenu`, `ClipDetails` (side panel), `ClipImage`, `AppIcon`, `CollectionTabs`, `TabPill`, `Tooltip`, `TitleBar`, `Button`, `Input`.
+- `components/`: `ClipCard` (tile), `ClipGrid`, `ClipContextMenu`, `ClipDetails` (side panel), `SettingsPanel`, `ClipImage`, `AppIcon`, `CollectionTabs`, `TabPill`, `Tooltip`, `TitleBar`, `Button`, `Input`.
 - `composables/`: `useClips`, `useCollections`, `useTileDrag`, link and file previews, `useTimeAgo`, `useVisible`, `usePrefersDark`.
 - `assets/css/main.css`: global styles, including the `.skeleton` class for content still loading.
 - `utils/`: colors, SVG, links, files, `menu.ts` (shared menu animation).

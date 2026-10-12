@@ -144,6 +144,24 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
              PRAGMA user_version = 12;",
         )?;
     }
+    if version < 13 {
+        conn.execute_batch(
+            "CREATE TABLE settings (
+                 key TEXT PRIMARY KEY,
+                 value TEXT NOT NULL
+             );
+             PRAGMA user_version = 13;",
+        )?;
+    }
+    Ok(())
+}
+
+pub fn setting(conn: &Connection, key: &str) -> rusqlite::Result<Option<String>> {
+    conn.query_row("SELECT value FROM settings WHERE key = ?1", params![key], |row| row.get(0)).optional()
+}
+
+pub fn set_setting(conn: &Connection, key: &str, value: &str) -> rusqlite::Result<()> {
+    conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?1, ?2)", params![key, value])?;
     Ok(())
 }
 

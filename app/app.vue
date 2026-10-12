@@ -54,6 +54,7 @@ function swipeOut(el: Element, done: () => void) {
 const historyAnimation = computed(() => ({ x: isHistoryShown.value ? 0 : '-100%' }))
 
 const detailsClip = ref<Clip | null>(null)
+const settingsOpen = ref(false)
 async function toggleDetailsFavorite(clip: Clip) {
   const updated = await toggleFavorite(clip)
   if (detailsClip.value?.id === updated.id) detailsClip.value = updated
@@ -151,6 +152,9 @@ onBeforeUnmount(() => {
             @click="layout = layout === 'grid' ? 'list' : 'grid'"
           />
         </Tooltip>
+        <Tooltip content="Settings">
+          <Button icon="gravity-ui:gear" size="sm" @click="settingsOpen = true" />
+        </Tooltip>
       </TitleBar>
 
       <CollectionTabs v-model="collection" @prefetch="prefetch" @drop-clip="onDropClip" />
@@ -225,5 +229,6 @@ onBeforeUnmount(() => {
     </div>
 
     <ClipDetails :clip="detailsClip" @close="detailsClip = null" @copy="copy" @favorite="toggleDetailsFavorite" />
+    <SettingsPanel :open="settingsOpen" @close="settingsOpen = false" />
   </TooltipProvider>
 </template>

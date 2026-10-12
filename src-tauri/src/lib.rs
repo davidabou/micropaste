@@ -8,6 +8,7 @@ mod drop;
 mod history;
 mod images;
 mod link_preview;
+mod settings;
 mod source_app;
 mod window_icon;
 
@@ -251,6 +252,38 @@ async fn load_link_preview(
     Ok(Some(preview))
 }
 
+#[tauri::command]
+fn get_settings(app: tauri::AppHandle) -> settings::Settings {
+    settings::get(&app)
+}
+
+#[tauri::command]
+fn set_shortcut(app: tauri::AppHandle, shortcut: String) -> Result<(), String> {
+    settings::set_shortcut(&app, &shortcut)
+}
+
+#[tauri::command]
+fn set_recording_shortcut(recording: bool) {
+    settings::set_recording_shortcut(recording);
+}
+
+#[tauri::command]
+fn set_retention_days(app: tauri::AppHandle, days: Option<u32>) -> Result<(), String> {
+    settings::set_retention_days(&app, days)?;
+    std::thread::spawn(move || history::purge_or_log(&app));
+    Ok(())
+}
+
+#[tauri::command]
+fn count_expiring_clips(db: tauri::State<Db>, days: u32) -> Result<usize, String> {
+    history::expiring_count(&db.0.lock().unwrap(), days).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn set_launch_at_startup(app: tauri::AppHandle, enabled: bool) -> Result<bool, String> {
+    settings::set_launch_at_startup(&app, enabled)
+}
+
 fn backfill_image_sizes(conn: &rusqlite::Connection, images_dir: &std::path::Path) {
     let Ok(images) = db::images_without_size(conn) else { return };
     for (id, hash) in images {
@@ -322,7 +355,13 @@ pub fn run() {
             drop_text,
             drop_image,
             get_link_preview,
-            refresh_link_preview
+            refresh_link_preview,
+            get_settings,
+            set_shortcut,
+            set_recording_shortcut,
+            set_retention_days,
+            count_expiring_clips,
+            set_launch_at_startup
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
