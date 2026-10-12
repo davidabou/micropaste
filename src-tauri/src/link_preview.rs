@@ -12,7 +12,6 @@ use url::{Host, Url};
 
 use crate::images;
 
-/// Only the `<head>` matters, which is near the start of the page
 const MAX_HTML_BYTES: usize = 1 << 20;
 const MAX_IMAGE_BYTES: usize = 5 << 20;
 
@@ -23,19 +22,14 @@ pub struct LinkPreview {
     pub title: Option<String>,
     pub description: Option<String>,
     pub site_name: Option<String>,
-    /// File name of the preview image in the images folder
     pub image: Option<String>,
-    /// Unix timestamp in milliseconds of the last load from the website
     #[serde(skip)]
     pub fetched_at: i64,
-    /// Older than `MAX_AGE_MS`: shown as is, but worth reloading
     pub stale: bool,
 }
 
-/// Previews older than this are reloaded in the background when shown again.
 pub const MAX_AGE_MS: i64 = 7 * 24 * 60 * 60 * 1000;
 
-/// The URL if the copied text is a single http(s) link to a public website.
 pub fn parse_url(text: &str) -> Option<Url> {
     let url = Url::parse(text.trim()).ok()?;
     (matches!(url.scheme(), "http" | "https") && is_public(&url)).then_some(url)
@@ -94,9 +88,6 @@ fn client() -> &'static Client {
     })
 }
 
-/// Loads the page and reads its title, description and image (Open Graph tags,
-/// the ones social networks use for their link previews).
-/// Errors are network failures: worth retrying later, unlike a page without preview tags.
 pub async fn fetch(url: &Url, images_dir: &Path) -> reqwest::Result<LinkPreview> {
     let mut preview = LinkPreview {
         url: url.to_string(),
@@ -111,7 +102,6 @@ pub async fn fetch(url: &Url, images_dir: &Path) -> reqwest::Result<LinkPreview>
     let response = client().get(url.clone()).send().await?.error_for_status()?;
     let content_type = content_type(&response);
 
-    // A direct link to an image: the image is the preview
     if content_type.starts_with("image/") {
         preview.image = save_image(response, images_dir).await;
         return Ok(preview);
@@ -132,17 +122,15 @@ pub async fn fetch(url: &Url, images_dir: &Path) -> reqwest::Result<LinkPreview>
     let image_url = first(&["og:image", "og:image:url", "og:image:secure_url", "twitter:image", "twitter:image:src"])
         .and_then(|image| page_url.join(&image).ok())
         .filter(is_public);
-    if let Some(image_url) = image_url {
-        // A broken image doesn't prevent the rest of the preview
-        if let Ok(response) = client().get(image_url).send().await.and_then(|r| r.error_for_status()) {
-            preview.image = save_image(response, images_dir).await;
-        }
+    if let Some(image_url) = image_url
+        && let Ok(response) = client().get(image_url).send().await.and_then(|r| r.error_for_status())
+    {
+        preview.image = save_image(response, images_dir).await;
     }
 
     Ok(preview)
 }
 
-/// Meta tags by name (`og:title`, `description`…) plus the page `<title>`, first occurrence wins.
 fn read_tags(html: &str) -> HashMap<String, String> {
     let document = Html::parse_document(html);
     let meta = Selector::parse("meta[content]").unwrap();
@@ -169,7 +157,6 @@ fn read_tags(html: &str) -> HashMap<String, String> {
     tags
 }
 
-/// Downloads the image into the images folder, named after its content hash.
 async fn save_image(response: Response, images_dir: &Path) -> Option<String> {
     let extension = match content_type(&response).as_str() {
         "image/jpeg" | "image/jpg" => "jpg",
@@ -183,7 +170,6 @@ async fn save_image(response: Response, images_dir: &Path) -> Option<String> {
         _ => return None,
     };
     let bytes = read_limited(response, MAX_IMAGE_BYTES).await.ok()?;
-    // Truncated: the image is too large to keep
     if bytes.len() >= MAX_IMAGE_BYTES {
         return None;
     }
@@ -204,7 +190,6 @@ fn content_type(response: &Response) -> String {
         .to_ascii_lowercase()
 }
 
-/// Reads the body up to `limit` bytes, without downloading the rest.
 async fn read_limited(mut response: Response, limit: usize) -> reqwest::Result<Vec<u8>> {
     let mut body = Vec::new();
     while let Some(chunk) = response.chunk().await? {

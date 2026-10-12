@@ -5,12 +5,10 @@ use std::path::{Path, PathBuf};
 use arboard::ImageData;
 use tauri::{AppHandle, Manager};
 
-/// Folder of the copied images, one `<hash>.png` file per image.
 pub fn dir(app: &AppHandle) -> tauri::Result<PathBuf> {
     Ok(app.path().app_data_dir()?.join("images"))
 }
 
-/// Content hash of an image: identical images get the same hash, and so the same file.
 pub fn hash(image: &ImageData) -> String {
     let mut hasher = blake3::Hasher::new();
     hasher.update(&(image.width as u64).to_le_bytes());
@@ -19,7 +17,6 @@ pub fn hash(image: &ImageData) -> String {
     hasher.finalize().to_hex().to_string()
 }
 
-/// Saves the image as `<dir>/<hash>.png`, unless it is already there. Returns the file size in bytes.
 pub fn save(dir: &Path, hash: &str, image: &ImageData) -> io::Result<u64> {
     let file = format!("{hash}.png");
     if let Some(size) = file_size(dir, hash) {
@@ -31,12 +28,10 @@ pub fn save(dir: &Path, hash: &str, image: &ImageData) -> io::Result<u64> {
     Ok(png.len() as u64)
 }
 
-/// Size in bytes of the saved image `<dir>/<hash>.png`.
 pub fn file_size(dir: &Path, hash: &str) -> Option<u64> {
     fs::metadata(dir.join(format!("{hash}.png"))).ok().map(|meta| meta.len())
 }
 
-/// Deletes `<dir>/<file>`, if it exists.
 pub fn remove_file(dir: &Path, file: &str) -> io::Result<()> {
     match fs::remove_file(dir.join(file)) {
         Err(e) if e.kind() != io::ErrorKind::NotFound => Err(e),
@@ -44,7 +39,6 @@ pub fn remove_file(dir: &Path, file: &str) -> io::Result<()> {
     }
 }
 
-/// Writes `<dir>/<file>`, unless it is already there.
 pub fn save_file(dir: &Path, file: &str, bytes: &[u8]) -> io::Result<()> {
     let path = dir.join(file);
     if path.exists() {
@@ -62,7 +56,6 @@ pub fn encode_png(width: u32, height: u32, rgba: &[u8]) -> Option<Vec<u8>> {
     let mut encoder = png::Encoder::new(&mut png, width, height);
     encoder.set_color(png::ColorType::Rgba);
     encoder.set_depth(png::BitDepth::Eight);
-    // Screenshots can be large: favor speed over file size
     encoder.set_compression(png::Compression::Fast);
     let mut writer = encoder.write_header().ok()?;
     writer.write_image_data(rgba).ok()?;
@@ -70,7 +63,6 @@ pub fn encode_png(width: u32, height: u32, rgba: &[u8]) -> Option<Vec<u8>> {
     Some(png)
 }
 
-/// Reads back a saved image as `(width, height, rgba pixels)`.
 pub fn load_rgba(dir: &Path, hash: &str) -> io::Result<(u32, u32, Vec<u8>)> {
     let file = fs::read(dir.join(format!("{hash}.png")))?;
     // Large screenshots exceed the decoder's default memory limit

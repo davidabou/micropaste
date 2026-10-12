@@ -8,11 +8,8 @@ use crate::clipboard::{CLIP_ADDED_EVENT, now_ms};
 use crate::db::{self, Db};
 use crate::images;
 
-/// Clipboard sequence number of the last content written by micropaste,
-/// so the watcher doesn't record it as a new copy.
 static COPIED_SEQUENCE: AtomicU32 = AtomicU32::new(0);
 
-/// Whether the current clipboard content was written by `copy`.
 pub fn is_own_copy() -> bool {
     // The sequence number is only stored once writing is done, the watcher can be faster:
     // the clipboard owner, a window of this process, tells it right away
@@ -23,12 +20,10 @@ pub fn is_own_copy() -> bool {
     copied != 0 && clipboard_sequence() == copied
 }
 
-/// Error shown on the tile when none of the copied files exist anymore (moved or deleted).
 pub fn files_not_found(paths: &str) -> String {
     if paths.lines().count() > 1 { "Files not found" } else { "File not found" }.into()
 }
 
-/// Puts a clip back in the clipboard, ready to paste with Ctrl+V, and moves it back to the top.
 pub fn copy(app: &AppHandle, id: i64) -> Result<(), String> {
     let db = app.state::<Db>();
     let clip = db::get(&db.0.lock().unwrap(), id).map_err(|e| e.to_string())?;
@@ -42,7 +37,6 @@ pub fn copy(app: &AppHandle, id: i64) -> Result<(), String> {
             clipboard.set_image(image).map_err(|e| e.to_string())?;
         }
         "files" => {
-            // Files moved or deleted since are left out
             let paths: Vec<&Path> = clip.content.lines().map(Path::new).filter(|path| path.exists()).collect();
             if paths.is_empty() {
                 return Err(crate::copy::files_not_found(&clip.content));

@@ -2,20 +2,15 @@
 import { animate } from 'motion-v'
 import type { Collection } from '~/composables/useCollections'
 
-/** Open collection, `null` for the history */
 const selected = defineModel<number | null>({ default: null })
 
 const emit = defineEmits<{
-  /** A collection tab is hovered: its clips can be loaded ahead */
   prefetch: [collection: number]
-  /** A dragged tile was dropped on a collection tab */
   dropClip: [collection: number]
 }>()
 
 const { collections, historyCount, create, rename, reorder, remove } = useCollections()
 
-// Tabs rearranged by dragging them along the bar: the order follows the pointer, and is saved
-// once the tab is let go
 const order = ref<Collection[]>([])
 const draggingTab = ref(false)
 watch(collections, (list) => {
@@ -27,8 +22,6 @@ function saveOrder() {
   if (changed) reorder(order.value)
 }
 
-// A dragged tile dropped on a collection tab goes into that collection: the tab lights up
-// while the tile is over it, and bounces once it takes it
 const dropTarget = ref<number | null>(null)
 function onTileOver(event: DragEvent, id: number) {
   if (!tileDragging.value) return
@@ -37,7 +30,6 @@ function onTileOver(event: DragEvent, id: number) {
   dropTarget.value = id
 }
 function onTileLeave(event: DragEvent, id: number) {
-  // Leaving for a child of the tab is still over it
   const target = event.currentTarget as HTMLElement
   if (!target.contains(event.relatedTarget as Node | null) && dropTarget.value === id) dropTarget.value = null
 }
@@ -49,19 +41,15 @@ function onTileDrop(event: DragEvent, id: number) {
   animate(event.currentTarget as HTMLElement, { scale: [1, 1.15, 1] }, { duration: 0.4, ease: 'easeOut' })
 }
 
-// Number of clips next to each tab name, e.g. "1,234"
 const formatCount = (count: number) => count.toLocaleString('en-US')
 
-// Tab values are strings: "history", or the collection id
 const tab = computed({
   get: () => (selected.value === null ? 'history' : String(selected.value)),
   set: (value: string) => (selected.value = value === 'history' ? null : Number(value))
 })
 
-// Collection whose tab menu is open, driving its Motion animation
 const menuOpenFor = ref<number | null>(null)
 
-// Inline name field, to create a collection ("new") or rename one (its id)
 const editing = ref<'new' | number | null>(null)
 const draft = ref('')
 let nameInput: HTMLInputElement | null = null
@@ -70,14 +58,12 @@ const setNameInput = (el: unknown) => {
   nameInput = ((el as { $el?: HTMLInputElement } | null)?.$el ?? el) as HTMLInputElement | null
 }
 
-// Width of the tab being renamed: its bubble starts from there, then fits the name
 const renameFromWidth = ref(0)
 
 async function startEditing(target: 'new' | number, name = '') {
   if (target !== 'new') {
     renameFromWidth.value = document.querySelector<HTMLElement>(`[data-collection-tab="${target}"]`)?.offsetWidth ?? 0
   }
-  // Measured before the field shows, so the bubble heads straight to the right width
   draft.value = name
   await nextTick()
   await measureName()
@@ -87,7 +73,6 @@ async function startEditing(target: 'new' | number, name = '') {
   nameInput?.select()
 }
 
-// Enter and leaving the field both save, Escape cancels. An empty name changes nothing
 async function commit() {
   const target = editing.value
   const name = draft.value.trim()
@@ -101,7 +86,6 @@ async function commit() {
 }
 const cancel = () => (editing.value = null)
 
-// A collection with clips asks before it is deleted, an empty one goes right away
 const deleting = ref<Collection | null>(null)
 // Kept apart: the dialog clears `deleting` as it closes, before the Delete click is handled
 let deletingId: number | null = null
@@ -125,7 +109,6 @@ async function deleteCollection(id: number) {
 }
 const clipCount = (count: number) => `${formatCount(count)} ${count === 1 ? 'clip' : 'clips'}`
 
-// The dialog pops in on a spring over a fading backdrop, like the Windows 11 dialogs
 const dialogMotion = {
   initial: { opacity: 0, scale: 0.9 },
   animate: { opacity: 1, scale: 1, transition: { type: 'spring' as const, bounce: 0.3, visualDuration: 0.22 } },
@@ -135,13 +118,9 @@ const dialogMotion = {
 // No overflow clipping on the tab itself (the name is truncated inside): the sliding pill would be cut
 const trigger = 'relative isolate flex h-8 items-center max-w-48 shrink-0 cursor-pointer rounded-md px-3 text-sm font-medium opacity-60 transition-opacity duration-100 hover:opacity-100 focus-visible:outline-2 focus-visible:outline-current data-[state=active]:opacity-100'
 
-// The "+" button morphs into the name field: it widens into a tab-like bubble, the "+" shrinks away
-// and the field fades in. Saving shrinks it back into the button
 const creating = computed(() => editing.value === 'new')
 const morph = { type: 'spring', bounce: 0.2, duration: 0.4 } as const
 const NAME_PLACEHOLDER = 'Name...'
-// The field fills the bubble, whose width follows the typed name with the same spring:
-// an invisible copy of the text gives its width
 const nameMirror = useTemplateRef<HTMLElement>('nameMirror')
 const nameWidth = ref(0)
 async function measureName() {
@@ -151,16 +130,11 @@ async function measureName() {
   await nextTick()
   if (nameInput && nameInput.scrollWidth <= nameInput.clientWidth) nameInput.scrollLeft = 0
 }
-// Measured ahead too, so the bubble opens straight to the placeholder width
 onMounted(measureName)
 watch(draft, measureName, { flush: 'post' })
 const morphWidth = computed(() => ({ width: creating.value ? nameWidth.value : 32 }))
-// Font and padding of a tab. Its width jumps straight to the name width while the bubble catches up:
-// the bubble reveals the end of the name, instead of the field scrolling its start out of view
 const newNameText = 'h-8 shrink-0 bg-transparent px-3 font-ui text-sm font-medium outline-none placeholder:text-current placeholder:opacity-50'
 
-// A new collection tab pops in with a bounce. A deleted one swells a little then pops out,
-// then the tabs after it slide into its place
 const tabPop = {
   initial: { opacity: 0, scale: 0.6 },
   animate: { opacity: 1, scale: 1, transition: { type: 'spring' as const, bounce: 0.5, duration: 0.45 } },
@@ -172,10 +146,8 @@ const tabSlide = { type: 'spring', bounce: 0.2, duration: 0.4 } as const
 <template>
   <TabsRoot v-model="tab">
     <TabsList class="relative flex items-center gap-1 overflow-x-auto px-2 pb-1">
-      <!-- Lets the tabs and the "+" button slide once a deleted tab is gone -->
       <LayoutGroup>
         <TabsTrigger value="history" :class="trigger">
-          <!-- Name and count share their baseline, despite their different sizes -->
           <span class="flex min-w-0 items-baseline gap-1.5">
             <span class="min-w-0 truncate">History</span>
             <span class="shrink-0 text-xs font-normal tabular-nums opacity-60">{{ formatCount(historyCount) }}</span>
@@ -183,7 +155,6 @@ const tabSlide = { type: 'spring', bounce: 0.2, duration: 0.4 } as const
           <TabPill v-if="tab === 'history'" />
         </TabsTrigger>
 
-        <!-- Drag a tab along the bar to move it: the others make room -->
         <ReorderGroup
           as="div"
           axis="x"
@@ -191,7 +162,6 @@ const tabSlide = { type: 'spring', bounce: 0.2, duration: 0.4 } as const
           :values="order"
           @update:values="order = $event"
         >
-          <!-- The deleted tab keeps its place while it pops out, then the next ones slide over it -->
           <AnimatePresence :initial="false">
             <ReorderItem
               v-for="collection in order"
@@ -212,7 +182,6 @@ const tabSlide = { type: 'spring', bounce: 0.2, duration: 0.4 } as const
               @dragleave="onTileLeave($event, collection.id)"
               @drop="onTileDrop($event, collection.id)"
             >
-              <!-- Renaming: the tab turns into a bubble that resizes from the tab to the name, like the "+" one -->
               <Motion
                 v-if="editing === collection.id"
                 :initial="{ width: renameFromWidth || nameWidth }"
@@ -232,7 +201,6 @@ const tabSlide = { type: 'spring', bounce: 0.2, duration: 0.4 } as const
                   @blur="commit"
                 >
               </Motion>
-              <!-- Right-click a tab to rename or delete its collection -->
               <ContextMenuRoot
                 v-else
                 :open="menuOpenFor === collection.id"
@@ -247,10 +215,8 @@ const tabSlide = { type: 'spring', bounce: 0.2, duration: 0.4 } as const
                     <TabPill v-if="tab === String(collection.id)" />
                   </TabsTrigger>
                 </ContextMenuTrigger>
-                <!-- force-mount: Motion decides when the menu leaves, once its exit animation is over -->
                 <ContextMenuPortal force-mount>
                   <AnimatePresence>
-                    <!-- Focus stays in the name field instead of going back to the tab -->
                     <ContextMenuContent
                       v-if="menuOpenFor === collection.id"
                       force-mount
@@ -275,7 +241,6 @@ const tabSlide = { type: 'spring', bounce: 0.2, duration: 0.4 } as const
           </AnimatePresence>
         </ReorderGroup>
 
-        <!-- One bubble for the button and the field: its width animates between both, then with the name -->
         <Tooltip content="New collection" :disabled="creating">
           <Motion
             layout="position"
@@ -286,13 +251,11 @@ const tabSlide = { type: 'spring', bounce: 0.2, duration: 0.4 } as const
             class="relative flex h-8 shrink-0 items-center overflow-hidden transition-colors duration-100"
             :class="creating ? 'bg-black/[5.78%] dark:bg-white/[8.37%]' : 'hover:bg-black/[3.73%] dark:hover:bg-white/[6.05%]'"
           >
-            <!-- Invisible copy of the name (or placeholder), measured to size the bubble -->
             <span
               ref="nameMirror"
               aria-hidden="true"
               class="pointer-events-none invisible absolute left-0 w-max px-3 font-ui text-sm font-medium whitespace-pre"
             >{{ draft || NAME_PLACEHOLDER }}</span>
-            <!-- popLayout: the leaving one is taken out of the layout -->
             <AnimatePresence mode="popLayout" :initial="false">
               <Motion
                 v-if="!creating"
@@ -333,7 +296,6 @@ const tabSlide = { type: 'spring', bounce: 0.2, duration: 0.4 } as const
       </LayoutGroup>
     </TabsList>
 
-    <!-- Deleting a collection that holds clips: they stay in the history, but the grouping is lost -->
     <AlertDialogRoot :open="deleting !== null" @update:open="open => !open && (deleting = null)">
       <AlertDialogPortal force-mount>
         <AnimatePresence>

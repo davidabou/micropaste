@@ -8,14 +8,11 @@ use crate::clipboard::now_ms;
 use crate::db::{self, Db};
 use crate::images;
 
-/// Clips not used (copied or recopied) for this long leave the history, unless they are in a collection.
 const RETENTION_MS: i64 = 30 * 24 * 60 * 60 * 1000;
 const PURGE_INTERVAL: Duration = Duration::from_secs(60 * 60);
 
-/// Emitted to the frontend with the ids of the clips removed from the history by the cleanup.
 pub const CLIPS_REMOVED_EVENT: &str = "clips-removed";
 
-/// Deletes a clip, and its images from the disk once nothing else uses them.
 pub fn remove(app: &AppHandle, conn: &Connection, id: i64) -> Result<(), String> {
     let files = db::delete(conn, id).map_err(|e| e.to_string())?;
     let images_dir = images::dir(app).map_err(|e| e.to_string())?;
@@ -27,7 +24,6 @@ pub fn remove(app: &AppHandle, conn: &Connection, id: i64) -> Result<(), String>
     Ok(())
 }
 
-/// Keeps the history from growing forever: removes old clips now, then every hour.
 /// The first cleanup runs before the window loads the history, so it never shows expired clips.
 pub fn start_cleanup(app: AppHandle) {
     purge_or_log(&app);

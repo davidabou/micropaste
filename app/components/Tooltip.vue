@@ -1,14 +1,8 @@
 <script setup lang="ts">
 const props = withDefaults(defineProps<{
-  /** Text shown on hover, multi-line with `\n`. Without it, only the slot is rendered */
   content?: string | null
   side?: 'top' | 'right' | 'bottom' | 'left'
-  /** Keeps the trigger as is but never shows the tooltip */
   disabled?: boolean
-  /**
-   * For paths: wider, and wrapped only at the edge, anywhere in the text, instead of at its spaces
-   * ("C:\Users\Master Race" doesn't break after "Master")
-   */
   path?: boolean
 }>(), {
   side: 'top'
@@ -16,14 +10,11 @@ const props = withDefaults(defineProps<{
 
 const open = ref(false)
 
-// The bubble (portal, content, animation) is built the first time it opens only: a tile holds several
-// tooltips, most never shown. The trigger stays the same element all along, never rebuilt
 const opened = ref(false)
 watch(open, (isOpen) => {
   if (isOpen) opened.value = true
 })
 
-// Pops in on a bouncy spring, sliding away from its trigger, and pops out without bounce
 const offset = computed(() => ({
   x: props.side === 'left' ? 4 : props.side === 'right' ? -4 : 0,
   y: props.side === 'top' ? 4 : props.side === 'bottom' ? -4 : 0
@@ -37,11 +28,9 @@ const pop = computed(() => ({
 
 <template>
   <TooltipRoot v-if="content" v-model:open="open" :disabled="disabled">
-    <!-- The slot element itself is the trigger, no extra wrapper -->
     <TooltipTrigger as-child>
       <slot />
     </TooltipTrigger>
-    <!-- force-mount: Motion decides when it leaves, once its exit animation is over -->
     <TooltipPortal v-if="opened" force-mount>
       <AnimatePresence>
         <TooltipContent
@@ -52,7 +41,6 @@ const pop = computed(() => ({
           :side-offset="6"
           :collision-padding="8"
         >
-          <!-- Colors of the Windows 11 tooltips -->
           <Motion
             :initial="pop.initial"
             :animate="pop.animate"

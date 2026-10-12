@@ -3,9 +3,7 @@ import { animate } from 'motion-v'
 import type { Clip } from '~/composables/useClips'
 
 const props = defineProps<{
-  /** Clip to detail, `null` when the panel is closed */
   clip: Clip | null
-  /** Bound with `@copy`: the Copy button shows "Copied" once the returned promise resolves */
   onCopy: (clip: Clip) => Promise<unknown>
 }>()
 
@@ -14,7 +12,6 @@ const emit = defineEmits<{
   favorite: [clip: Clip]
 }>()
 
-// The last clip shown stays while the panel slides out
 const shown = ref<Clip | null>(null)
 watch(() => props.clip, (clip) => {
   if (clip) shown.value = clip
@@ -29,14 +26,11 @@ const link = computed(() => (text.value ? copiedLink(text.value) : null))
 const linkPreview = useLinkPreview(link, open)
 const files = computed(() => (shown.value?.kind === 'files' ? shown.value.content.split('\n') : null))
 const isGroup = computed(() => (files.value?.length ?? 0) > 1)
-/** Folder holding every file, `null` when they come from different folders */
 const commonFolder = computed(() => {
   const folders = new Set(files.value?.map(folderOf))
   return folders.size === 1 ? [...folders][0]! : null
 })
 
-// Several files: a carousel, one file at a time. Arrows (buttons or keys) slide to the previous or
-// next one, wrapping around, and the next one is loaded ahead so it shows at once
 const slide = ref(0)
 watch(() => shown.value?.id, () => (slide.value = 0))
 const slidePath = computed(() => files.value?.[slide.value] ?? null)
@@ -48,14 +42,11 @@ function go(step: number) {
   slideForward = step > 0
   slide.value = (slide.value + step + files.value.length) % files.value.length
 }
-/** Jumps to a file from its dot, sliding toward it */
 function goTo(index: number) {
   if (index === slide.value) return
   slideForward = index > slide.value
   slide.value = index
 }
-// One dot per file, the current one wider. Past 7 files, like Instagram: a window of 7 dots follows
-// the current file, and the dots at its edges shrink to tell more lie beyond
 const DOT = 6
 const ACTIVE_DOT = 16
 const DOT_GAP = 4
@@ -78,7 +69,6 @@ function dotScale(index: number) {
   return 1
 }
 const dotSpring = { type: 'spring' as const, bounce: 0.2, visualDuration: 0.3 }
-// Through Transition hooks: they read the direction when the slide starts, the leaving one included
 const slideSpring = { type: 'spring' as const, bounce: 0, visualDuration: 0.3 }
 function slideIn(el: Element, done: () => void) {
   animate(el, { x: [slideForward ? '100%' : '-100%', 0] }, slideSpring).then(done)
@@ -102,7 +92,6 @@ const title = computed(() => {
   if (color.value) return color.value.value
   return type.value
 })
-// Characters, words and lines of a plain text
 const textStats = computed(() => {
   if (!text.value || color.value || link.value) return null
   return {
@@ -116,7 +105,6 @@ const lastCopied = computed(() =>
 )
 const formatNumber = (value: number) => value.toLocaleString('en-US')
 
-// The Copy button turns into "Copied" for a moment, or tells why it couldn't copy
 const copyLabel = ref<string | null>(null)
 const copyFailed = ref(false)
 let copiedTimer: ReturnType<typeof setTimeout> | undefined
@@ -128,7 +116,6 @@ async function copy() {
     copyLabel.value = 'Copied'
   } catch (error) {
     copyFailed.value = true
-    // The copied files no longer exist…
     copyLabel.value = typeof error === 'string' ? error : 'Couldn’t copy'
   }
   clearTimeout(copiedTimer)
@@ -136,14 +123,12 @@ async function copy() {
 }
 onBeforeUnmount(() => clearTimeout(copiedTimer))
 
-// Slides in from the right on a spring, over a fading backdrop, and slides back out. It stays
-// rendered while it slides out, and is removed once that animation is over
 const rendered = ref(false)
 let unmountTimer: ReturnType<typeof setTimeout> | undefined
 watch(open, (isOpen) => {
   clearTimeout(unmountTimer)
   if (isOpen) rendered.value = true
-  // In case the end of the animation isn't reported: removed anyway once it surely is over
+  // In case the end of the animation isn't reported
   else unmountTimer = setTimeout(() => (rendered.value = false), 500)
 }, { immediate: true })
 onBeforeUnmount(() => clearTimeout(unmountTimer))
@@ -157,14 +142,11 @@ function onPanelAnimated() {
 }
 
 const label = 'shrink-0 opacity-60'
-// Previous and next buttons, over the sides of the carousel
-// Shown while the pointer is over the carousel (or a button has the keyboard focus)
 const carouselButton = 'absolute top-1/2 flex size-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-white/80 opacity-0 shadow-sm transition-[opacity,background-color] duration-150 group-hover/carousel:opacity-100 focus-visible:opacity-100 hover:bg-white focus-visible:outline-2 focus-visible:outline-current dark:bg-black/60 dark:hover:bg-black/80'
 </script>
 
 <template>
   <DialogRoot :open="open" @update:open="value => !value && emit('close')">
-    <!-- force-mount: the panel decides when it leaves, once it has slid out -->
     <DialogPortal force-mount>
       <DialogOverlay v-if="rendered" force-mount as-child>
         <Motion
@@ -176,7 +158,6 @@ const carouselButton = 'absolute top-1/2 flex size-7 -translate-y-1/2 cursor-poi
         />
       </DialogOverlay>
       <DialogContent v-if="rendered && shown" force-mount as-child :aria-describedby="undefined">
-        <!-- Left and right arrows browse the files of the carousel -->
         <Motion
           :initial="{ x: '105%' }"
           :animate="panelAnimation"
@@ -185,7 +166,6 @@ const carouselButton = 'absolute top-1/2 flex size-7 -translate-y-1/2 cursor-poi
           @keydown.right="go(1)"
           class="fixed inset-y-2 right-2 z-50 flex w-96 flex-col overflow-hidden rounded-lg border border-black/[5.78%] bg-[#f9f9f9] font-ui text-sm shadow-2xl dark:border-black/20 dark:bg-[#2c2c2c]"
         >
-          <!-- Header: what it is, and the close button -->
           <header class="flex items-center gap-2 px-4 pt-4 pb-3">
             <DialogTitle class="min-w-0 flex-1 truncate text-base font-medium">
               {{ title }}
@@ -196,7 +176,6 @@ const carouselButton = 'absolute top-1/2 flex size-7 -translate-y-1/2 cursor-poi
           </header>
 
           <div class="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
-            <!-- Large preview -->
             <div
               v-if="shown.kind === 'image' || linkPreview?.image || color || svgSrc || files"
               class="mb-4 flex h-48 items-center justify-center overflow-hidden rounded-lg bg-black/[3.73%] dark:bg-white/[6.05%]"
@@ -229,8 +208,6 @@ const carouselButton = 'absolute top-1/2 flex size-7 -translate-y-1/2 cursor-poi
                   <button type="button" :class="[carouselButton, 'right-2']" aria-label="Next file" @click="go(1)">
                     <Icon name="gravity-ui:chevron-right" class="text-sm" />
                   </button>
-                  <!-- Dots, shown with the arrows. Each one animates its own width, so the row stays smooth
-                       both ways. Clicking a dot goes to its file -->
                   <div
                     class="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-white/80 px-1.5 py-1 opacity-0 transition-opacity duration-150 group-hover/carousel:opacity-100 has-focus-visible:opacity-100 dark:bg-black/60"
                   >
@@ -260,12 +237,10 @@ const carouselButton = 'absolute top-1/2 flex size-7 -translate-y-1/2 cursor-poi
                 </template>
               </div>
             </div>
-            <!-- Name of the file shown by the carousel -->
             <p v-if="isGroup && slidePath" class="-mt-2 mb-4 truncate text-center opacity-70">
               {{ fileName(slidePath) }}
             </p>
 
-            <!-- The full text, of a text, a link or a code -->
             <p
               v-if="text && !color"
               class="mb-4 max-h-64 overflow-y-auto rounded-lg bg-black/[3.73%] p-3 whitespace-pre-wrap wrap-anywhere select-text dark:bg-white/[6.05%]"
@@ -276,7 +251,6 @@ const carouselButton = 'absolute top-1/2 flex size-7 -translate-y-1/2 cursor-poi
               {{ linkPreview.description }}
             </p>
 
-            <!-- Information, one per line -->
             <dl class="flex flex-col gap-2.5">
               <div class="flex justify-between gap-4">
                 <dt :class="label">Type</dt>
@@ -323,8 +297,6 @@ const carouselButton = 'absolute top-1/2 flex size-7 -translate-y-1/2 cursor-poi
                   <dd>{{ formatNumber(textStats.lines) }}</dd>
                 </div>
               </template>
-              <!-- One line per file. A folder shared by every file shows once on top, else under each name.
-                   The file shown by the carousel is highlighted, clicking another one slides to it -->
               <div v-if="files" class="flex flex-col gap-1.5">
                 <dt :class="label">{{ files.length > 1 ? 'Files' : 'File' }}</dt>
                 <dd v-if="commonFolder" class="flex min-w-0 items-center gap-1.5">
@@ -350,7 +322,6 @@ const carouselButton = 'absolute top-1/2 flex size-7 -translate-y-1/2 cursor-poi
             </dl>
           </div>
 
-          <!-- Actions -->
           <footer class="flex gap-2 border-t border-black/[5.78%] p-3 dark:border-white/6">
             <Button
               variant="filled"
@@ -360,7 +331,6 @@ const carouselButton = 'absolute top-1/2 flex size-7 -translate-y-1/2 cursor-poi
             >
               {{ copyLabel ?? 'Copy' }}
             </Button>
-            <!-- Icon only: the filled star tells it is a favorite -->
             <Tooltip :content="shown.favorite ? 'Remove from favorites' : 'Add to favorites'">
               <Button
                 :icon="shown.favorite ? 'gravity-ui:star-fill' : 'gravity-ui:star'"

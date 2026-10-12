@@ -4,32 +4,22 @@ import type { Clip } from '~/composables/useClips'
 
 const props = defineProps<{
   clip: Clip
-  /** Bound with `@copy`: copies the clip, the tile shows "Copied" once it succeeds */
   onCopy?: () => Promise<unknown>
-  /** Shown in a collection: the delete button takes the clip out of it instead */
   inCollection?: boolean
-  /** Asking to confirm a deletion ("delete") or a removal from the open collection ("remove") */
   confirm?: 'delete' | 'remove' | null
-  /** "grid": a tall tile with a large preview. "list": a compact row with a small thumbnail */
   layout?: 'grid' | 'list'
 }>()
 
 defineEmits<{
   favorite: []
-  /** The info button was clicked: details of the clip */
   info: []
-  /** The delete button was clicked: confirmation asked */
   askDelete: []
-  /** The deletion (or removal) was confirmed */
   delete: []
   cancelDelete: []
 }>()
 
-// Buttons over the top right corner of the tile, readable over pictures too
 const cornerButton = 'flex size-7 cursor-pointer items-center justify-center rounded-md bg-white/80 backdrop-blur-md transition-[background-color] duration-100 hover:bg-neutral-200/90 active:bg-neutral-300/90 focus-visible:outline-2 focus-visible:outline-current dark:bg-black/60 dark:hover:bg-neutral-700/80 dark:active:bg-neutral-800/80'
 
-// The corner buttons drop in from above with a little bounce, one after the other, when the tile
-// is hovered (or focused with the keyboard, not by a click). They leave quickly, both at once
 const hovered = ref(false)
 const focused = ref(false)
 const actionsShown = computed(() => hovered.value || focused.value)
@@ -39,8 +29,6 @@ function cornerAnimation(index: number) {
     ? { opacity: 1, y: 0, scale: 1, transition: { type: 'spring' as const, bounce: 0.45, duration: 0.4, delay: index * 0.05 } }
     : { ...cornerHidden, transition: { duration: 0.12 } }
 }
-// The buttons only exist while needed: built when the tile is hovered, removed once they have
-// left. A grid of resting tiles holds none of them
 const actionsMounted = ref(false)
 let unmountActions: ReturnType<typeof setTimeout> | undefined
 watch(actionsShown, (shown) => {
@@ -50,20 +38,16 @@ watch(actionsShown, (shown) => {
 })
 onBeforeUnmount(() => clearTimeout(unmountActions))
 
-/** Message shown over the tile for a moment: "Copied", or why it couldn't be copied or dragged */
 const notice = ref<{ text: string, error: boolean } | null>(null)
-/** From the click until "Copied" shows: the delete button stays hidden in between */
 const copying = ref(false)
 let noticeTimer: ReturnType<typeof setTimeout> | undefined
 
 function showNotice(text: string, error = false) {
-  // Showing it again restarts the message instead of hiding it early
   clearTimeout(noticeTimer)
   notice.value = { text, error }
   noticeTimer = setTimeout(() => (notice.value = null), error ? 1800 : 1200)
 }
 
-// Copy and drag fail with a message ready to show (the copied files no longer exist…)
 const errorText = (error: unknown) => (typeof error === 'string' ? error : 'Couldn’t copy')
 
 async function copy() {
@@ -80,19 +64,13 @@ async function copy() {
 
 onBeforeUnmount(() => clearTimeout(noticeTimer))
 
-// The context menu copies through the tile too, so it shows "Copied" the same way
 defineExpose({ copy })
 
-// Dragging a tile drops its content in another app: text through the webview,
-// images and files through a native drag, the only way to hand files to other apps
-// The tile tilts while it is being dragged, to show the drag was picked up
 const dragging = ref(false)
-/** Quick and without bounce, for the tilt and the press */
 const tileSpring = { type: 'spring', bounce: 0, duration: 0.2 } as const
 const stopDragging = () => (dragging.value = false)
 
-// Shrinks a little while pressed. Followed by hand rather than with Motion's `whilePress`: once
-// a drag starts, the button never gets its `pointerup`, and `whilePress` would stay shrunk after it
+// Not Motion's `whilePress`: once a drag starts, the button never gets its `pointerup` and would stay shrunk
 const pressed = ref(false)
 const release = () => {
   pressed.value = false
@@ -108,27 +86,23 @@ function press(event: PointerEvent) {
 onBeforeUnmount(release)
 
 watch(dragging, (isDragging) => {
-  // Lets the window accept the drag while it passes over it
   tileDragging.value = isDragging
   if (!isDragging) draggedClip.value = null
   if (!isDragging) window.removeEventListener('pointermove', stopDragging)
 })
 onBeforeUnmount(() => window.removeEventListener('pointermove', stopDragging))
 
-// The tile itself follows the pointer, held where it was grabbed. Left to itself, the webview
-// snapshots it wrongly, the whole page moving along. Its background is see-through over the Mica,
-// which isn't in the snapshot: the tile is made opaque, in the same color, just for the snapshot
+// The webview snapshots the tile wrongly on its own (the whole page moves along), and without
+// the Mica behind it: the tile is made opaque, in the same color, for the snapshot only
 function setDragImage(event: DragEvent) {
   const tile = event.currentTarget as HTMLElement
   const rect = tile.getBoundingClientRect()
   Object.assign(tile.style, {
     transition: 'none',
     backgroundColor: prefersDark.value ? '#2e2e2e' : '#eaeaea',
-    // Without the hover ring, which would be cut at the edges
     boxShadow: 'none'
   })
   event.dataTransfer!.setDragImage(tile, event.clientX - rect.left, event.clientY - rect.top)
-  // Snapshotted once this event is over
   requestAnimationFrame(() => Object.assign(tile.style, { transition: '', backgroundColor: '', boxShadow: '' }))
 }
 
@@ -148,10 +122,7 @@ async function onDragStart(event: DragEvent) {
     requestAnimationFrame(() => window.addEventListener('pointermove', stopDragging, { once: true }))
     return
   }
-  // The webview drag is cancelled for a native one, which hands real files to other apps.
-  // Mouse moves reach the page again once the webview drag is cancelled: they can't tell when it ends
   event.preventDefault()
-  // Resolves once the native drag is dropped or cancelled
   await invoke('start_drag', { id: props.clip.id }).catch(error => showNotice(errorText(error), true))
   dragging.value = false
 }
@@ -159,7 +130,6 @@ async function onDragStart(event: DragEvent) {
 const timeAgo = useTimeAgo(() => props.clip.createdAt)
 const isImage = computed(() => props.clip.kind === 'image')
 
-// Copied SVG code is previewed as an image, in the text color of the current theme
 const prefersDark = usePrefersDark()
 const svgSrc = computed(() =>
   props.clip.kind === 'text'
@@ -167,12 +137,9 @@ const svgSrc = computed(() =>
     : null
 )
 
-// Copied colors (hex, rgb(), hsl(), oklch()…) fill the tile
 const color = computed(() => (props.clip.kind === 'text' ? copiedColor(props.clip.content) : null))
 
-// Copied links show the website preview once loaded, the plain link until then
 const link = computed(() => (props.clip.kind === 'text' ? copiedLink(props.clip.content) : null))
-// Loaded only once the card is on screen, not for the whole history at once
 const root = useTemplateRef<HTMLElement>('root')
 const visible = useVisible(root)
 const linkPreview = useLinkPreview(link, visible)
@@ -180,8 +147,6 @@ const preview = computed(() =>
   linkPreview.value && (linkPreview.value.title || linkPreview.value.image) ? linkPreview.value : null
 )
 
-// A copied file shows as the Explorer does: its thumbnail, or else its icon.
-// Several files show as a fanned stack of the first ones
 const files = computed(() => (props.clip.kind === 'files' ? props.clip.content.split('\n') : null))
 const isFileGroup = computed(() => (files.value?.length ?? 0) > 1)
 const filePreviews = [0, 1, 2].map(i => useFilePreview(() => files.value?.[i] ?? null, visible))
@@ -194,7 +159,6 @@ const fileTitle = computed(() => {
   return isFileGroup.value ? `${files.value.length} items` : fileName(files.value[0]!)
 })
 
-// Position of each card in the stack, the first file on top
 const STACK_LAYOUTS: Record<number, { rotate: number, x: number }[]> = {
   2: [{ rotate: 5, x: 10 }, { rotate: -5, x: -10 }],
   3: [{ rotate: 0, x: 0 }, { rotate: -9, x: -22 }, { rotate: 9, x: 22 }]
@@ -205,21 +169,16 @@ const fileStack = computed(() => {
   return layout.map((position, i) => ({ ...position, preview: filePreviews[i]!.value, z: layout.length - i }))
 })
 
-// Image shown across the whole tile: a copied image, or the image of a link preview
 const coverImage = computed(() => (isImage.value ? `${props.clip.content}.png` : preview.value?.image ?? null))
-// Pictures or colors behind the footer
 const hasCover = computed(() => coverImage.value !== null || fileThumbnail.value !== null || color.value !== null)
-// Over a plain color, the footer text takes the most readable of dark and white. Over pictures, a gradient keeps it readable
 const footerText = computed(() => (color.value ? (isLightColor(color.value.css) ? 'text-black/90' : 'text-white') : null))
 const title = computed(() => preview.value?.title ?? fileTitle.value ?? color.value?.value)
-// List rows show a single line of text for every clip
 const isList = computed(() => props.layout === 'list')
 const listTitle = computed(() => {
   if (title.value) return title.value
   if (isImage.value) return props.clip.width && props.clip.height ? `Image ${props.clip.width} × ${props.clip.height}` : 'Image'
   return link.value ?? props.clip.content.trim().replace(/\s+/g, ' ')
 })
-// Space the corner buttons take over the end of a row: info and star, plus the cross in a collection
 const listTextMask = computed(() => {
   const covered = props.inCollection ? 96 : 64
   return `linear-gradient(to left, transparent ${covered}px, black ${covered + 32}px)`
@@ -229,7 +188,7 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
 
 <template>
   <!-- Wrapper: the delete button can't sit inside the tile button.
-       isolate: the footer and overlay z-indexes stay inside the tile, not above a tile sliding over it -->
+       isolate: the footer z-index stays inside the tile -->
   <div
     ref="root"
     class="group relative isolate"
@@ -238,8 +197,6 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
     @focusin="focused = ($event.target as Element).matches(':focus-visible')"
     @focusout="focused = false"
   >
-    <!-- Tilts while dragged (a tile, not a list row) and shrinks a little while pressed, with Motion springs that can turn
-         around mid-way. Hover colors stay in CSS -->
     <Motion
       as="button"
       type="button"
@@ -253,8 +210,6 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
       @dragstart="onDragStart"
       @dragend="dragging = false"
     >
-      <!-- List row: small thumbnail, then the title and the source app, time and size on one line each.
-           Blurred under "Copied" like the tile -->
       <div
         v-if="isList"
         class="absolute inset-0 flex items-center gap-3 pr-3 pl-2 transition-[filter] duration-200"
@@ -276,7 +231,6 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
           <div v-else-if="files" class="skeleton size-full" />
           <Icon v-else name="gravity-ui:text-align-left" class="text-[20px] opacity-50" />
         </div>
-        <!-- Fades out before the corner buttons while they show, instead of running under them -->
         <div class="min-w-0 flex-1" :style="actionsShown ? { maskImage: listTextMask } : undefined">
           <Tooltip :content="files?.map(fileName).join('\n') ?? listTitle">
             <p class="truncate text-sm font-medium">
@@ -305,10 +259,7 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
       </div>
 
       <template v-else>
-        <!-- Tile content (the footer aside), blurred under "Copied". Blurred itself rather than through
-             a backdrop filter on the message, which didn't reach plain text -->
         <div class="absolute inset-0 flex flex-col transition-[filter] duration-200" :class="(notice || confirm) && 'blur-sm'">
-          <!-- Images and SVGs fill the whole tile, the footer is drawn over them -->
           <ClipImage
             v-if="coverImage"
             :file="coverImage"
@@ -321,7 +272,6 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
             draggable="false"
             class="absolute inset-0 size-full object-cover"
           >
-          <!-- Color over a checkerboard, which shows through semi-transparent colors -->
           <div
             v-else-if="color"
             class="absolute inset-0 bg-[conic-gradient(#ccc_25%,#fff_0_50%,#ccc_0_75%,#fff_0)] bg-size-[16px_16px]"
@@ -329,17 +279,13 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
             <div class="size-full" :style="{ background: color.css }" />
           </div>
           <div v-else-if="svgSrc" class="absolute inset-0 flex items-center justify-center">
-            <!-- Same size for every SVG, whatever its own dimensions -->
             <img :src="svgSrc" alt="" draggable="false" class="size-24 object-contain">
           </div>
-          <!-- Link without preview image: same layout, with an icon in place of the image -->
           <div v-else-if="link" class="absolute inset-0 flex items-center justify-center">
-            <!-- Sized with the font size: Nuxt Icon sets width and height to 1em, over Tailwind size utilities -->
+            <!-- Nuxt Icon sets width and height to 1em, over Tailwind size utilities -->
             <Icon name="gravity-ui:globe" class="text-[64px] opacity-40" />
           </div>
-          <!-- Several files: the first ones as cards fanned out, each with its thumbnail or icon -->
           <div v-else-if="isFileGroup" class="absolute inset-0 flex items-center justify-center pb-10">
-            <!-- isolate: the cards' z-index only orders them, they stay below the footer and "Copied" -->
             <div class="relative isolate size-20">
               <div
                 v-for="card in fileStack"
@@ -360,13 +306,11 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
               </div>
             </div>
           </div>
-          <!-- File without thumbnail (document, archive, folder…): its icon, or a cross once it was moved or deleted -->
           <div v-else-if="files" class="absolute inset-0 flex items-center justify-center">
             <img v-if="filePreview?.image" :src="filePreview.image" alt="" draggable="false" class="size-16 object-contain">
             <Icon v-else-if="filePreview" name="gravity-ui:file-xmark" class="text-[64px] opacity-40" />
             <div v-else class="skeleton size-16 rounded-md" />
           </div>
-          <!-- Plain text starts below the delete button, which never covers it -->
           <div v-else class="min-h-0 flex-1">
             <p class="line-clamp-5 px-3 pt-9 whitespace-pre-wrap wrap-anywhere text-sm">
               {{ clip.content }}
@@ -374,15 +318,12 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
           </div>
         </div>
 
-        <!-- Source app and copy time, pinned to the bottom. Over images, a gradient (white or black,
-             following the theme) keeps it readable, over colors the text color. Kept sharp and above "Copied" -->
         <footer
           class="absolute inset-x-0 bottom-0 z-10 px-3 py-2"
           :class="[
             footerText ?? (hasCover && 'bg-linear-to-t from-white/90 via-white/60 to-transparent pt-8 dark:from-black/85 dark:via-black/50'),
           ]"
         >
-          <!-- One line, cut with an ellipsis: the full title shows on hover -->
           <Tooltip v-if="title" :content="files?.map(fileName).join('\n') ?? title">
             <p class="mb-1 truncate font-medium text-sm">
               {{ title }}
@@ -402,7 +343,6 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
             </Tooltip>
             <span v-else-if="color" class="ml-auto shrink-0 opacity-70">{{ color.format }}</span>
             <span v-else-if="svgSrc" class="ml-auto shrink-0 opacity-60">SVG</span>
-            <!-- Only folders: no size to show -->
             <span v-else-if="files" class="ml-auto shrink-0 opacity-60">{{ files.length > 1 ? `${files.length} items` : 'Folder' }}</span>
             <Tooltip v-else-if="link" :content="link">
               <span class="ml-auto truncate opacity-70">{{ linkDomain(link) }}</span>
@@ -411,7 +351,6 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
         </footer>
       </template>
 
-      <!-- Confirmation over the whole tile: fades in quickly with a small pop, fades out on its own -->
       <AnimatePresence>
         <Motion
           v-if="notice"
@@ -434,8 +373,6 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
       </AnimatePresence>
     </Motion>
 
-    <!-- Asks before deleting, over the blurred tile like "Copied". Outside the tile button:
-         a button can't hold other buttons -->
     <AnimatePresence>
       <Motion
         v-if="confirm"
@@ -446,7 +383,6 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
         :animate="{ opacity: 1, transition: { duration: 0.1 } }"
         :exit="{ opacity: 0, transition: { duration: 0.15 } }"
       >
-        <!-- On a list row, the question and the buttons share the line -->
         <Motion
           class="flex items-center gap-3"
           :class="isList ? 'w-full justify-between' : 'flex-col'"
@@ -469,8 +405,6 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
       </Motion>
     </AnimatePresence>
 
-    <!-- Over the top right corner of the tile, shown on hover. Hidden while the tile is pressed, dragged or shows "Copied".
-         Not clickable while hidden -->
     <div
       v-if="actionsMounted"
       v-show="!dragging && !copying && !notice && !confirm"
@@ -489,7 +423,6 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
           <Icon name="gravity-ui:circle-info" class="text-sm" />
         </Motion>
       </Tooltip>
-      <!-- Filled star for a favorite -->
       <Tooltip :content="clip.favorite ? 'Remove from favorites' : 'Add to favorites'">
         <Motion
           as="button"
@@ -503,7 +436,6 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
           <Icon v-else name="gravity-ui:star" class="text-sm" />
         </Motion>
       </Tooltip>
-      <!-- In a collection only: deleting from the history is a rare action, kept in the context menu -->
       <Tooltip v-if="inCollection" content="Remove from collection">
         <Motion
           as="button"

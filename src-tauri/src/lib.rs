@@ -44,7 +44,6 @@ fn search_clips(
         .map_err(|e| e.to_string())
 }
 
-/// Stars or unstars a clip, and returns it updated.
 #[tauri::command]
 fn set_favorite(db: tauri::State<Db>, id: i64, favorite: bool) -> Result<Clip, String> {
     db::set_favorite(&db.0.lock().unwrap(), id, favorite).map_err(|e| e.to_string())
@@ -110,8 +109,6 @@ fn collection_name(name: &str) -> Result<&str, String> {
     Ok(name)
 }
 
-/// Icon of a source app as a PNG data URL, extracted once from its executable then cached.
-/// Async so the extraction runs off the main thread.
 #[tauri::command]
 async fn get_app_icon(db: tauri::State<'_, Db>, path: String) -> Result<Option<String>, String> {
     {
@@ -132,23 +129,17 @@ async fn get_app_icon(db: tauri::State<'_, Db>, path: String) -> Result<Option<S
     Ok(Some(png_data_url(&png)))
 }
 
-/// Copies a clip again, ready to paste with Ctrl+V. Async so decoding a large image doesn't block the window.
 #[tauri::command]
 async fn copy_clip(app: tauri::AppHandle, id: i64) -> Result<(), String> {
     copy::copy(&app, id)
 }
 
-/// Preview of a copied file: its thumbnail or icon, as the Explorer shows it.
 #[derive(serde::Serialize)]
 struct FilePreview {
-    /// PNG data URL, `None` if the file no longer exists
     image: Option<String>,
-    /// Whether `image` is a thumbnail of the content, rather than the icon of the file type
     thumbnail: bool,
 }
 
-/// Generated on demand so it follows changes to the file. Async so slow thumbnails
-/// (videos, large pictures) don't block the window.
 #[tauri::command]
 async fn get_file_preview(db: tauri::State<'_, Db>, path: String) -> Result<FilePreview, String> {
     // Only preview files that were copied, not arbitrary paths
@@ -166,41 +157,31 @@ async fn get_file_preview(db: tauri::State<'_, Db>, path: String) -> Result<File
     })
 }
 
-/// Drags a copied image or copied files out of the window, to drop them in another app.
-/// Async: the drag runs on the main thread, which a sync command would block.
 #[tauri::command]
 async fn start_drag(app: tauri::AppHandle, window: tauri::Window, id: i64) -> Result<(), String> {
     drag_out::start(&app, window, id)
 }
 
-/// Opens the Windows 11 Snap Layouts, hovering the maximize button of the custom title bar, and closes
-/// them once the pointer leaves. Async: it waits and watches the pointer, off the main thread.
 #[tauri::command]
 async fn show_snap_layouts(button: snap_layouts::ButtonRect) {
     snap_layouts::show(button);
 }
 
-/// Text dropped into a collection from another app: added to it, out of the history.
 #[tauri::command]
 fn drop_text(app: tauri::AppHandle, collection: i64, text: String) -> Result<Clip, String> {
     drop::text(&app, collection, &text)
 }
 
-/// A picture dropped into a collection from a browser (its bytes): added to it, out of the history.
-/// Async: decoding a large picture doesn't block the window.
 #[tauri::command]
 async fn drop_image(app: tauri::AppHandle, collection: i64, bytes: Vec<u8>) -> Result<Clip, String> {
     drop::image(&app, collection, &bytes)
 }
 
-/// Deletes a clip from the history, and its images from the disk once nothing else uses them.
 #[tauri::command]
 fn delete_clip(app: tauri::AppHandle, db: tauri::State<Db>, id: i64) -> Result<(), String> {
     history::remove(&app, &db.0.lock().unwrap(), id)
 }
 
-/// Preview (title, description, image) of a copied link, loaded once from the website then cached.
-/// A cached preview older than 7 days comes back with `stale`, to reload with `refresh_link_preview`.
 #[tauri::command]
 async fn get_link_preview(
     app: tauri::AppHandle,
@@ -224,7 +205,6 @@ async fn get_link_preview(
     load_link_preview(&app, &db, &url, &parsed, None).await
 }
 
-/// Reloads a cached preview from the website. Keeps the cached one if the website can't be reached.
 #[tauri::command]
 async fn refresh_link_preview(
     app: tauri::AppHandle,
@@ -252,7 +232,6 @@ async fn load_link_preview(
     previous: Option<LinkPreview>,
 ) -> Result<Option<LinkPreview>, String> {
     let images_dir = images::dir(app).map_err(|e| e.to_string())?;
-    // Offline or unreachable: keep what we have, it will be retried next time
     let Ok(mut preview) = link_preview::fetch(parsed, &images_dir).await else {
         return Ok(previous);
     };
@@ -260,17 +239,16 @@ async fn load_link_preview(
     preview.url = url.to_owned();
 
     let old_image = previous.as_ref().and_then(|previous| previous.image.clone());
-    if let Some(previous) = previous {
-        // The website no longer gives a preview (outage, bot protection…): keep the previous one
-        if preview.title.is_none() && preview.image.is_none() {
-            preview = LinkPreview { stale: false, ..previous };
-        }
+    if let Some(previous) = previous
+        && preview.title.is_none()
+        && preview.image.is_none()
+    {
+        preview = LinkPreview { stale: false, ..previous };
     }
 
     let conn = db.0.lock().unwrap();
     db::save_link_preview(&conn, &preview, clipboard::now_ms()).map_err(|e| e.to_string())?;
 
-    // The website changed its image: delete the old one unless something else uses it
     if let Some(old_image) = old_image.filter(|old| preview.image.as_ref() != Some(old))
         && !db::is_image_file_used(&conn, &old_image).unwrap_or(true)
     {
@@ -279,7 +257,6 @@ async fn load_link_preview(
     Ok(Some(preview))
 }
 
-/// Records the file size of images copied before it was saved with them.
 fn backfill_image_sizes(conn: &rusqlite::Connection, images_dir: &std::path::Path) {
     let Ok(images) = db::images_without_size(conn) else { return };
     for (id, hash) in images {
@@ -310,7 +287,6 @@ pub fn run() {
             std::fs::create_dir_all(&data_dir)?;
             let conn = db::open(&data_dir.join("micropaste.db"))?;
             backfill_image_sizes(&conn, &images::dir(app.handle())?);
-            // micropaste's own icon (clips copied in its window) may have changed with an update
             if let Ok(exe) = std::env::current_exe() {
                 let _ = db::forget_app_icon(&conn, &exe.to_string_lossy());
             }

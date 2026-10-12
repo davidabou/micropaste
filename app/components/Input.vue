@@ -14,7 +14,6 @@ const model = defineModel<string>({ default: '' })
 const input = useTemplateRef<HTMLInputElement>('input')
 defineExpose({ focus: () => input.value?.focus() })
 
-// class/style style the wrapper, every other attribute (spellcheck, autofocus…) goes to the <input>
 const attrs = useAttrs()
 const inputAttrs = computed(() => {
   const { class: _class, style: _style, ...rest } = attrs
@@ -23,7 +22,6 @@ const inputAttrs = computed(() => {
 </script>
 
 <template>
-  <!-- Naked input: no border, no background, blends into its container -->
   <label
     class="flex h-6 cursor-text items-center gap-2 px-1"
     :class="$attrs.class"

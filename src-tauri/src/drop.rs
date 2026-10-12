@@ -1,6 +1,3 @@
-//! Content dropped from other apps into a collection: files from the Explorer, selected text,
-//! pictures from a browser. Not a copy: it goes into the collection only, out of the history.
-
 use arboard::ImageData;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
@@ -9,10 +6,8 @@ use crate::clipboard::{now_ms, total_size};
 use crate::db::{self, Clip, Db, NewClip};
 use crate::images;
 
-/// Emitted to the frontend once dropped files are saved: their paths only reach the backend.
 pub const CLIP_DROPPED_EVENT: &str = "clip-dropped";
 
-/// Start of the message the page sends with dropped files, followed by the collection id.
 #[cfg(windows)]
 const FILES_MESSAGE: &str = "micropaste-drop-files:";
 
@@ -22,8 +17,6 @@ struct Dropped {
     clip: Clip,
 }
 
-/// Saves the content out of the history, and puts it in the collection.
-/// The app it was dragged from: still in the foreground when it is dropped.
 fn save(app: &AppHandle, collection: i64, clip: NewClip) -> Result<Clip, String> {
     let source = crate::source_app::foreground();
     let db = app.state::<Db>();
@@ -40,7 +33,6 @@ pub fn text(app: &AppHandle, collection: i64, text: &str) -> Result<Clip, String
     save(app, collection, NewClip::Text(text))
 }
 
-/// A picture dropped from a browser: any common format, saved as PNG like a copied image.
 pub fn image(app: &AppHandle, collection: i64, bytes: &[u8]) -> Result<Clip, String> {
     let rgba = image::load_from_memory(bytes).map_err(|e| e.to_string())?.to_rgba8();
     let (width, height) = rgba.dimensions();
@@ -65,7 +57,6 @@ pub fn listen(window: &tauri::WebviewWindow) {
     use windows::Win32::System::Com::CoTaskMemFree;
     use windows::core::{Interface, PWSTR};
 
-    // Reads a string allocated by WebView2, and frees it
     fn take(value: PWSTR) -> String {
         let text = unsafe { value.to_string() }.unwrap_or_default();
         unsafe { CoTaskMemFree(Some(value.0 as *const _)) };
@@ -78,7 +69,6 @@ pub fn listen(window: &tauri::WebviewWindow) {
         let handler = WebMessageReceivedEventHandler::create(Box::new(move |_, args| {
             let Some(args) = args else { return Ok(()) };
             let mut message = PWSTR::null();
-            // Other messages (Tauri's own) aren't strings of ours: left alone
             if unsafe { args.TryGetWebMessageAsString(&mut message) }.is_err() {
                 return Ok(());
             }

@@ -1,11 +1,8 @@
-/// Size of the extracted icons, in pixels. 32px stays sharp when shown at 16px on HiDPI screens.
 pub const ICON_SIZE: u32 = 32;
 
-/// Extracts the icon of a source app (see `SourceApp::path`) as PNG bytes.
 #[cfg(windows)]
 pub fn extract_png(path: &str) -> Option<Vec<u8>> {
     let (width, height, rgba) = if path.starts_with(crate::source_app::PACKAGED_APP_PREFIX) {
-        // Store apps keep their icon in their package, not in their executable
         win::shell_image_rgba(path, ICON_SIZE, win::SIIGBF_ICONONLY)?
     } else {
         win::extract_rgba(path, ICON_SIZE)?
@@ -18,14 +15,9 @@ pub fn extract_png(_path: &str) -> Option<Vec<u8>> {
     None
 }
 
-/// Size of file thumbnails on tiles, in pixels: sharp enough to fill a tile on HiDPI screens.
 pub const THUMBNAIL_SIZE: u32 = 384;
-/// Size of file icons on tiles, shown at 64px.
 pub const FILE_ICON_SIZE: u32 = 96;
 
-/// Preview of a file as the Explorer shows it, as PNG bytes: its thumbnail (pictures,
-/// videos, PDFs…) fitting in `thumbnail_size`, with `true`, or else its icon of `icon_size`,
-/// with `false`. `None` if the file is gone.
 #[cfg(windows)]
 pub fn file_preview_png(path: &str, thumbnail_size: u32, icon_size: u32) -> Option<(Vec<u8>, bool)> {
     if let Some((width, height, rgba)) = win::shell_image_rgba(path, thumbnail_size, win::SIIGBF_THUMBNAILONLY) {
@@ -54,7 +46,6 @@ mod win {
     use windows::Win32::UI::WindowsAndMessaging::{DestroyIcon, GetIconInfo, HICON, ICONINFO};
     use windows::core::HSTRING;
 
-    /// Returns `(width, height, rgba pixels)` of the executable's main icon.
     pub fn extract_rgba(exe_path: &str, size: u32) -> Option<(u32, u32, Vec<u8>)> {
         let mut icon = HICON::default();
         let result = unsafe { SHDefExtractIconW(&HSTRING::from(exe_path), 0, 0, Some(&mut icon), None, size) };
@@ -69,8 +60,6 @@ mod win {
         pixels
     }
 
-    /// Image the shell shows for a path, e.g. a Store app in the Start menu or a file in the Explorer.
-    /// `flags` picks the icon or the thumbnail, scaled down to fit in `size`.
     pub fn shell_image_rgba(path: &str, size: u32, flags: SIIGBF) -> Option<(u32, u32, Vec<u8>)> {
         crate::source_app::init_com();
         let factory: IShellItemImageFactory =
@@ -81,7 +70,6 @@ mod win {
         let dc = unsafe { GetDC(None) };
         let pixels = bitmap_size(bitmap).and_then(|(width, height)| {
             let mut pixels = read_bgra(dc, bitmap, width, height)?;
-            // Thumbnails of opaque pictures come without alpha channel
             let opaque = pixels.as_chunks::<4>().0.iter().all(|px| px[3] == 0);
             for px in pixels.as_chunks_mut::<4>().0 {
                 if opaque {
@@ -137,7 +125,6 @@ mod win {
             }
         }
 
-        // BGRA -> RGBA
         for px in pixels.as_chunks_mut::<4>().0 {
             px.swap(0, 2);
         }

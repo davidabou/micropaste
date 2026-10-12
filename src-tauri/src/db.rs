@@ -13,22 +13,14 @@ pub struct Db(pub Mutex<Connection>);
 #[serde(rename_all = "camelCase")]
 pub struct Clip {
     pub id: i64,
-    /// "text", "image" or "files"
     pub kind: String,
-    /// The text, the image hash (file `images/<hash>.png`), or the file paths, one per line
     pub content: String,
-    /// Image size in pixels
     pub width: Option<u32>,
     pub height: Option<u32>,
-    /// Size of the saved image file, or total size of the copied files, in bytes
     pub byte_size: Option<i64>,
-    /// Display name of the app the clip was copied from, e.g. "Google Chrome"
     pub source_app_name: Option<String>,
-    /// Executable path of that app
     pub source_app_path: Option<String>,
-    /// Unix timestamp in milliseconds
     pub created_at: i64,
-    /// Starred by the user: kept forever, and listed by the favorites filter
     pub favorite: bool,
 }
 
@@ -51,7 +43,6 @@ pub fn open(path: &Path) -> rusqlite::Result<Connection> {
     Ok(conn)
 }
 
-/// Upgrades databases created by older versions, tracked with `PRAGMA user_version`.
 fn migrate(conn: &Connection) -> rusqlite::Result<()> {
     let version: i32 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
     if version < 1 {
@@ -106,7 +97,6 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
         )?;
     }
     if version < 7 {
-        // A clip can be in several collections, and stays in the history
         conn.execute_batch(
             "CREATE TABLE collections (
                  id INTEGER PRIMARY KEY,
@@ -129,7 +119,6 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
         )?;
     }
     if version < 9 {
-        // Collections in the order of their tabs, rearranged by dragging
         conn.execute_batch(
             "ALTER TABLE collections ADD COLUMN position INTEGER NOT NULL DEFAULT 0;
              UPDATE collections SET position = id;
@@ -137,7 +126,6 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
         )?;
     }
     if version < 10 {
-        // Clips of a collection in the order chosen by dragging them. Until then, last added first
         conn.execute_batch(
             "ALTER TABLE collection_clips ADD COLUMN position INTEGER NOT NULL DEFAULT 0;
              UPDATE collection_clips SET position = -added_at;
@@ -145,14 +133,12 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
         )?;
     }
     if version < 11 {
-        // The app's own name became capitalized
         conn.execute_batch(
             "UPDATE clips SET source_app_name = 'Micropaste' WHERE source_app_name = 'micropaste';
              PRAGMA user_version = 11;",
         )?;
     }
     if version < 12 {
-        // Content dropped into a collection isn't a copy: it stays out of the history until copied
         conn.execute_batch(
             "ALTER TABLE clips ADD COLUMN in_history INTEGER NOT NULL DEFAULT 1;
              PRAGMA user_version = 12;",
@@ -161,7 +147,6 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
     Ok(())
 }
 
-/// Cached PNG icon of an executable.
 pub fn app_icon(conn: &Connection, path: &str) -> rusqlite::Result<Option<Vec<u8>>> {
     conn.query_row("SELECT png FROM app_icons WHERE path = ?1", params![path], |row| row.get(0)).optional()
 }
@@ -171,19 +156,16 @@ pub fn save_app_icon(conn: &Connection, path: &str, png: &[u8]) -> rusqlite::Res
     Ok(())
 }
 
-/// Drops the cached icon of an executable, extracted again when next asked.
 pub fn forget_app_icon(conn: &Connection, path: &str) -> rusqlite::Result<()> {
     conn.execute("DELETE FROM app_icons WHERE path = ?1", params![path])?;
     Ok(())
 }
 
-/// Whether some clip was copied from this executable.
 pub fn is_source_app(conn: &Connection, path: &str) -> rusqlite::Result<bool> {
     conn.query_row("SELECT EXISTS (SELECT 1 FROM clips WHERE source_app_path = ?1)", params![path], |row| row.get(0))
 }
 
 impl NewClip<'_> {
-    /// `(kind, content, width, height, byte_size)` of the row
     fn columns(&self) -> (&'static str, &str, Option<u32>, Option<u32>, Option<i64>) {
         match *self {
             NewClip::Text(text) => ("text", text, None, None, None),
@@ -197,23 +179,13 @@ impl NewClip<'_> {
 
 pub enum NewClip<'a> {
     Text(&'a str),
-    Image {
-        hash: &'a str,
-        width: u32,
-        height: u32,
-        byte_size: i64,
-    },
-    /// File paths, one per line
-    Files {
-        paths: &'a str,
-        byte_size: Option<i64>,
-    },
+    Image { hash: &'a str, width: u32, height: u32, byte_size: i64 },
+    Files { paths: &'a str, byte_size: Option<i64> },
 }
 
 const COLUMNS: &str =
     "id, kind, content, width, height, byte_size, source_app_name, source_app_path, created_at, favorite";
 
-/// Saves a clip. Copying the same content again moves it back to the top.
 pub fn save(conn: &Connection, clip: NewClip, source: Option<&SourceApp>, now: i64) -> rusqlite::Result<Clip> {
     let (kind, content, width, height, byte_size) = clip.columns();
     conn.query_row(
@@ -232,8 +204,6 @@ pub fn save(conn: &Connection, clip: NewClip, source: Option<&SourceApp>, now: i
     )
 }
 
-/// Saves content dropped into a collection: out of the history, with the app it came from. Content already
-/// saved (copied or dropped before) is returned as is.
 pub fn save_dropped(conn: &Connection, clip: NewClip, source: Option<&SourceApp>, now: i64) -> rusqlite::Result<Clip> {
     let (kind, content, width, height, byte_size) = clip.columns();
     conn.execute(
@@ -249,7 +219,6 @@ pub fn save_dropped(conn: &Connection, clip: NewClip, source: Option<&SourceApp>
     )
 }
 
-/// Whether this path is one of the copied files.
 pub fn is_copied_file(conn: &Connection, path: &str) -> rusqlite::Result<bool> {
     conn.query_row(
         "SELECT EXISTS (SELECT 1 FROM clips
@@ -259,7 +228,6 @@ pub fn is_copied_file(conn: &Connection, path: &str) -> rusqlite::Result<bool> {
     )
 }
 
-/// Whether some text clip is exactly this content (ignoring surrounding spaces).
 pub fn is_text_clip(conn: &Connection, text: &str) -> rusqlite::Result<bool> {
     conn.query_row(
         "SELECT EXISTS (SELECT 1 FROM clips WHERE kind = 'text' AND trim(content) = ?1)",
@@ -287,7 +255,6 @@ pub fn link_preview(conn: &Connection, url: &str) -> rusqlite::Result<Option<Lin
     .optional()
 }
 
-/// Whether a file of the images folder is still used, by a copied image or a link preview.
 pub fn is_image_file_used(conn: &Connection, file: &str) -> rusqlite::Result<bool> {
     conn.query_row(
         "SELECT EXISTS (SELECT 1 FROM link_previews WHERE image = ?1)
@@ -306,7 +273,6 @@ pub fn save_link_preview(conn: &Connection, preview: &LinkPreview, now: i64) -> 
     Ok(())
 }
 
-/// Images saved before their file size was recorded, as `(id, hash)`.
 pub fn images_without_size(conn: &Connection) -> rusqlite::Result<Vec<(i64, String)>> {
     let mut stmt = conn.prepare("SELECT id, content FROM clips WHERE kind = 'image' AND byte_size IS NULL")?;
 
@@ -322,7 +288,6 @@ pub fn get(conn: &Connection, id: i64) -> rusqlite::Result<Clip> {
     conn.query_row(&format!("SELECT {COLUMNS} FROM clips WHERE id = ?1"), params![id], to_clip)
 }
 
-/// Stars or unstars a clip.
 pub fn set_favorite(conn: &Connection, id: i64, favorite: bool) -> rusqlite::Result<Clip> {
     conn.query_row(
         &format!("UPDATE clips SET favorite = ?2 WHERE id = ?1 RETURNING {COLUMNS}"),
@@ -331,7 +296,6 @@ pub fn set_favorite(conn: &Connection, id: i64, favorite: bool) -> rusqlite::Res
     )
 }
 
-/// Moves a clip back to the top, e.g. after pasting it.
 pub fn touch(conn: &Connection, id: i64, now: i64) -> rusqlite::Result<Clip> {
     conn.query_row(
         &format!("UPDATE clips SET created_at = ?2 WHERE id = ?1 RETURNING {COLUMNS}"),
@@ -340,8 +304,6 @@ pub fn touch(conn: &Connection, id: i64, now: i64) -> rusqlite::Result<Clip> {
     )
 }
 
-/// Ids of the clips to remove: last used before `before`, or only dropped and no longer in a collection.
-/// Favorites and clips of collections are kept forever.
 pub fn expired(conn: &Connection, before: i64) -> rusqlite::Result<Vec<i64>> {
     let mut stmt = conn.prepare(
         "SELECT id FROM clips
@@ -352,8 +314,6 @@ pub fn expired(conn: &Connection, before: i64) -> rusqlite::Result<Vec<i64>> {
     stmt.query_map(params![before], |row| row.get(0))?.collect()
 }
 
-/// Deletes a clip, with its link preview if no other clip shows it.
-/// Returns the files of the images folder it used, to delete once nothing else uses them.
 pub fn delete(conn: &Connection, id: i64) -> rusqlite::Result<Vec<String>> {
     let Some(clip) = get(conn, id).optional()? else {
         return Ok(Vec::new());
@@ -364,7 +324,6 @@ pub fn delete(conn: &Connection, id: i64) -> rusqlite::Result<Vec<String>> {
     if clip.kind == "image" {
         files.push(format!("{}.png", clip.content));
     } else if clip.kind == "text" {
-        // Previews are cached under the trimmed text
         let url = clip.content.trim();
         if !is_text_clip(conn, url)?
             && let Some(preview) = link_preview(conn, url)?
@@ -376,11 +335,8 @@ pub fn delete(conn: &Connection, id: i64) -> rusqlite::Result<Vec<String>> {
     Ok(files)
 }
 
-/// The history, newest first, or the clips of a collection, last added first.
-/// `favorites` keeps only the favorite clips.
 pub fn list(conn: &Connection, limit: u32, collection: Option<i64>, favorites: bool) -> rusqlite::Result<Vec<Clip>> {
     let (join, order) = collection_scope(collection);
-    // The history leaves out content only dropped into collections
     let mut filters = Vec::new();
     if collection.is_none() {
         filters.push("in_history = 1");
@@ -395,7 +351,7 @@ pub fn list(conn: &Connection, limit: u32, collection: Option<i64>, favorites: b
     stmt.query_map([], to_clip)?.collect()
 }
 
-/// Join restricting a query to a collection, and its order. The id comes from SQLite, not from text.
+/// The id comes from SQLite, not from text.
 fn collection_scope(collection: Option<i64>) -> (String, &'static str) {
     match collection {
         Some(id) => {
@@ -409,11 +365,9 @@ fn collection_scope(collection: Option<i64>) -> (String, &'static str) {
 pub struct Collection {
     pub id: i64,
     pub name: String,
-    /// Number of clips in it
     pub count: i64,
 }
 
-/// Collections, in the order of their tabs.
 pub fn collections(conn: &Connection) -> rusqlite::Result<Vec<Collection>> {
     let mut stmt = conn.prepare(
         "SELECT id, name, (SELECT COUNT(*) FROM collection_clips WHERE collection_id = id)
@@ -423,7 +377,6 @@ pub fn collections(conn: &Connection) -> rusqlite::Result<Vec<Collection>> {
     stmt.query_map([], |row| Ok(Collection { id: row.get(0)?, name: row.get(1)?, count: row.get(2)? }))?.collect()
 }
 
-/// Number of clips in the history.
 pub fn count(conn: &Connection) -> rusqlite::Result<i64> {
     conn.query_row("SELECT COUNT(*) FROM clips WHERE in_history = 1", [], |row| row.get(0))
 }
@@ -443,7 +396,6 @@ pub fn rename_collection(conn: &Connection, id: i64, name: &str) -> rusqlite::Re
     Ok(())
 }
 
-/// Saves the order of the collections, given as their ids from first to last tab.
 pub fn reorder_collections(conn: &mut Connection, ids: &[i64]) -> rusqlite::Result<()> {
     let tx = conn.transaction()?;
     for (position, id) in ids.iter().enumerate() {
@@ -452,7 +404,6 @@ pub fn reorder_collections(conn: &mut Connection, ids: &[i64]) -> rusqlite::Resu
     tx.commit()
 }
 
-/// Deletes a collection. Its clips stay in the history.
 pub fn delete_collection(conn: &Connection, id: i64) -> rusqlite::Result<()> {
     conn.execute("DELETE FROM collections WHERE id = ?1", params![id])?;
     Ok(())
@@ -460,7 +411,6 @@ pub fn delete_collection(conn: &Connection, id: i64) -> rusqlite::Result<()> {
 
 pub fn add_to_collection(conn: &Connection, collection: i64, clip: i64, now: i64) -> rusqlite::Result<()> {
     conn.execute(
-        // Added before the first clip of the collection
         "INSERT OR IGNORE INTO collection_clips (collection_id, clip_id, added_at, position)
          VALUES (?1, ?2, ?3, (SELECT COALESCE(MIN(position), 0) - 1 FROM collection_clips WHERE collection_id = ?1))",
         params![collection, clip, now],
@@ -468,7 +418,6 @@ pub fn add_to_collection(conn: &Connection, collection: i64, clip: i64, now: i64
     Ok(())
 }
 
-/// Saves the order of the clips of a collection, given as their ids from first to last.
 pub fn reorder_collection(conn: &mut Connection, collection: i64, clips: &[i64]) -> rusqlite::Result<()> {
     let tx = conn.transaction()?;
     for (position, clip) in clips.iter().enumerate() {
@@ -485,15 +434,12 @@ pub fn remove_from_collection(conn: &Connection, collection: i64, clip: i64) -> 
     Ok(())
 }
 
-/// Ids of the collections a clip is in.
 pub fn clip_collections(conn: &Connection, clip: i64) -> rusqlite::Result<Vec<i64>> {
     let mut stmt = conn.prepare("SELECT collection_id FROM collection_clips WHERE clip_id = ?1")?;
 
     stmt.query_map(params![clip], |row| row.get(0))?.collect()
 }
 
-/// Clips matching every word of the query, newest first. A word matches the text,
-/// the file paths, the source app name, or the title and description of a link preview.
 pub fn search(
     conn: &Connection,
     query: &str,

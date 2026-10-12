@@ -1,8 +1,6 @@
-//! Sharp window icon. Tauri gives the window a single image of its icon, the largest one, which
-//! Windows then scales down for the taskbar and the title: blurry. The executable holds the icon
-//! at every size: the window gets the ones matching the screen scale, as other apps do.
+//! Tauri gives the window only its largest icon, which Windows scales down blurry: the window gets
+//! the sizes matching the screen scale from the executable.
 
-/// Resource id of the icon tauri-build puts in the executable.
 #[cfg(windows)]
 const ICON_RESOURCE: u16 = 32512;
 

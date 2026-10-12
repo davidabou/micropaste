@@ -1,32 +1,23 @@
 use std::path::Path;
 
-/// Prefix of the `path` of Microsoft Store (packaged) apps, followed by their AppUserModelID.
-/// The shell resolves it to the app's display name and icon, like the Start menu does.
 pub const PACKAGED_APP_PREFIX: &str = r"shell:AppsFolder\";
 
 #[derive(Debug, Clone)]
 pub struct SourceApp {
-    /// Display name, e.g. "Google Chrome"
     pub name: String,
-    /// Executable path, or `shell:AppsFolder\<AppUserModelID>` for Microsoft Store apps
     pub path: String,
 }
 
-/// Finds the app that just wrote to the clipboard.
 #[cfg(windows)]
 pub fn detect() -> Option<SourceApp> {
     use windows::Win32::System::DataExchange::GetClipboardOwner;
     use windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow;
 
-    // Copied in micropaste's own window, e.g. part of a text selected on a tile
     if is_own_window() {
         let exe = std::env::current_exe().ok()?.to_string_lossy().into_owned();
         return Some(SourceApp { name: "Micropaste".to_owned(), path: exe });
     }
 
-    // The clipboard owner is the window that wrote the data. Some apps write without
-    // an owner, and Store apps write through a Windows service: in both cases fall
-    // back to the foreground window, where Ctrl+C was pressed.
     let owner = unsafe { GetClipboardOwner() }.ok().and_then(win::process_of_window);
     let via_system_host = owner.as_ref().is_some_and(win::Process::is_system_host);
     let owner = owner.filter(|_| !via_system_host);
@@ -47,8 +38,6 @@ pub fn detect() -> Option<SourceApp> {
     describe(process)
 }
 
-/// The app in the foreground, e.g. the one content is dragged from: the click that starts a drag
-/// brings it there. `None` if it is micropaste itself.
 #[cfg(windows)]
 pub fn foreground() -> Option<SourceApp> {
     use windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow;
@@ -64,7 +53,6 @@ pub fn foreground() -> Option<SourceApp> {
     None
 }
 
-/// Display name and path of an app from its process: the shell's for a Store app.
 #[cfg(windows)]
 fn describe(process: win::Process) -> Option<SourceApp> {
     if let Some(aumid) = process.app_user_model_id {
@@ -83,8 +71,6 @@ pub fn detect() -> Option<SourceApp> {
     None
 }
 
-/// Whether the clipboard was written by the micropaste process itself, i.e. a clip put back
-/// by clicking its tile. Copies made in its window come from its WebView2 processes instead.
 #[cfg(windows)]
 pub fn is_written_by_own_process() -> bool {
     clipboard_owner_pid() == Some(std::process::id())
@@ -102,7 +88,6 @@ fn clipboard_owner_pid() -> Option<u32> {
     owner.and_then(win::window_pid)
 }
 
-/// Whether the copy was made in micropaste's window, handled by its WebView2 processes.
 #[cfg(windows)]
 fn is_own_window() -> bool {
     use windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow;
@@ -125,7 +110,6 @@ fn file_name_is(path: &str, name: &str) -> bool {
     Path::new(path).file_name().is_some_and(|file| file.to_string_lossy().eq_ignore_ascii_case(name))
 }
 
-/// Initializes COM on the current thread, required by the shell APIs.
 #[cfg(windows)]
 pub fn init_com() {
     use windows::Win32::System::Com::{COINIT_APARTMENTTHREADED, CoInitializeEx};
@@ -156,12 +140,10 @@ mod win {
 
     pub struct Process {
         pub exe: String,
-        /// Set for Microsoft Store (packaged) apps
         pub app_user_model_id: Option<String>,
     }
 
     impl Process {
-        /// Windows services that write to the clipboard on behalf of other apps.
         pub fn is_system_host(&self) -> bool {
             file_name_is(&self.exe, "svchost.exe")
         }
@@ -202,7 +184,6 @@ mod win {
         }
     }
 
-    /// The Snipping Tool process if it is running (it handles Win+Shift+S screenshots).
     pub fn running_snipping_tool() -> Option<Process> {
         let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) }.ok()?;
         let mut entry = PROCESSENTRY32W { dwSize: size_of::<PROCESSENTRY32W>() as u32, ..Default::default() };
@@ -254,7 +235,6 @@ mod win {
         Some(String::from_utf16_lossy(&buffer[..len as usize - 1]))
     }
 
-    /// Localized name the shell shows for a path, e.g. "Calculatrice".
     pub fn shell_display_name(path: &str) -> Option<String> {
         init_com();
         let item: IShellItem = unsafe { SHCreateItemFromParsingName(&HSTRING::from(path), None) }.ok()?;
@@ -264,7 +244,6 @@ mod win {
         text.filter(|text| !text.is_empty())
     }
 
-    /// The "File description" from the executable's version info, e.g. "Google Chrome".
     pub fn file_description(path: &str) -> Option<String> {
         let path = HSTRING::from(path);
         let size = unsafe { GetFileVersionInfoSizeW(&path, None) };

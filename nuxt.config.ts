@@ -3,7 +3,6 @@ import tailwindcss from '@tailwindcss/vite'
 
 const host = process.env.TAURI_DEV_HOST
 
-// https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   modules: ['@nuxt/fonts', '@nuxt/icon/module', 'motion-v/nuxt', 'reka-ui/nuxt'],
   compatibilityDate: '2025-07-15',
@@ -18,7 +17,6 @@ export default defineNuxtConfig({
   },
   css: ['@/assets/css/main.css'],
   typescript: {
-    // Checked with Node's types, like this file
     nodeTsConfig: { include: ['../bump.config.ts'] }
   },
   fonts: {
@@ -27,17 +25,13 @@ export default defineNuxtConfig({
       subsets: ['latin', 'latin-ext']
     },
     families: [
-      // Windows system font, already installed: never fetch it from a provider
       { name: 'Segoe UI', provider: 'none' }
     ]
   },
   icon: {
-    // Desktop app served offline: never fetch icons from the Iconify API at runtime
     provider: 'none',
     clientBundle: {
-      // Bundle every icon used literally in the source (e.g. <Icon name="gravity-ui:magnifier" />)
       scan: true,
-      // Add dynamically built icon names here, e.g. 'gravity-ui:file'
       sizeLimitKb: 256
     }
   },

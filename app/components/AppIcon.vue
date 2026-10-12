@@ -1,7 +1,6 @@
 <script lang="ts">
 import { invoke } from '@tauri-apps/api/core'
 
-// Shared by every instance: each app icon is requested only once
 const cache = new Map<string, Promise<string | null>>()
 
 function loadIcon(path: string) {
@@ -14,7 +13,6 @@ function loadIcon(path: string) {
 
 <script setup lang="ts">
 const props = defineProps<{
-  /** Executable path of the app */
   path: string | null
 }>()
 
@@ -27,7 +25,6 @@ watchEffect(async () => {
   if (!path) return
   loading.value = true
   const icon = await loadIcon(path)
-  // Ignore the result if the path changed while loading
   if (props.path !== path) return
   src.value = icon
   loading.value = false

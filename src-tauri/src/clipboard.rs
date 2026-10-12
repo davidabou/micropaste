@@ -10,10 +10,8 @@ use crate::db::{self, Db, NewClip};
 use crate::images;
 use crate::source_app;
 
-/// Emitted to the frontend with the saved `Clip` every time something is copied.
 pub const CLIP_ADDED_EVENT: &str = "clip-added";
 
-/// Watches the system clipboard on a dedicated thread and saves every copied text and image.
 pub fn start_watcher(app: AppHandle) {
     thread::spawn(move || {
         let clipboard = match Clipboard::new() {
@@ -78,11 +76,7 @@ impl Watcher {
 
 enum Content {
     Text(String),
-    Image {
-        image: ImageData<'static>,
-        hash: String,
-    },
-    /// Paths of the copied files and folders, one per line
+    Image { image: ImageData<'static>, hash: String },
     Files(String),
 }
 
@@ -95,8 +89,6 @@ impl ClipboardHandler for Watcher {
             return CallbackResult::Next;
         };
 
-        // Everything is recorded, content put back by dictation tools included: the top
-        // of the history always matches what Ctrl+V pastes
         match self.save(&content) {
             Ok(clip) => {
                 let _ = self.app.emit(CLIP_ADDED_EVENT, clip);
@@ -112,20 +104,17 @@ impl ClipboardHandler for Watcher {
     }
 }
 
-/// Reads the clipboard, retrying while the source app still holds it.
 fn read<T>(mut read: impl FnMut() -> Result<T, arboard::Error>) -> Option<T> {
     for _ in 0..5 {
         match read() {
             Ok(value) => return Some(value),
             Err(arboard::Error::ClipboardOccupied) => thread::sleep(Duration::from_millis(20)),
-            // Not this kind of content, or unreadable
             Err(_) => return None,
         }
     }
     None
 }
 
-/// Total size of the copied files, folders aside. `None` if only folders were copied.
 pub fn total_size(paths: &str) -> Option<i64> {
     let sizes: Vec<u64> = paths
         .lines()
@@ -136,7 +125,6 @@ pub fn total_size(paths: &str) -> Option<i64> {
     (!sizes.is_empty()).then(|| sizes.iter().sum::<u64>() as i64)
 }
 
-/// Whether the clipboard holds a picture.
 #[cfg(windows)]
 fn has_bitmap() -> bool {
     clipboard_win::is_format_avail(clipboard_win::formats::CF_DIB)

@@ -1,4 +1,3 @@
-// One clock shared by every component, refreshed every 30 seconds
 const now = ref(Date.now())
 let timer: ReturnType<typeof setInterval> | undefined
 
@@ -6,7 +5,6 @@ const MINUTE = 60_000
 const HOUR = 60 * MINUTE
 const DAY = 24 * HOUR
 
-/** Formats a timestamp as "now", "36 min ago", "12 hr ago", "3 d ago"… */
 export function formatTimeAgo(timestamp: number, from = Date.now()) {
   const elapsed = Math.max(0, from - timestamp)
   if (elapsed < MINUTE) return 'now'
@@ -18,7 +16,6 @@ export function formatTimeAgo(timestamp: number, from = Date.now()) {
   return `${Math.floor(elapsed / (365 * DAY))} yr ago`
 }
 
-/** Relative time that stays up to date while the app is open. */
 export function useTimeAgo(timestamp: MaybeRefOrGetter<number>) {
   if (import.meta.client && !timer) {
     timer = setInterval(() => (now.value = Date.now()), 30_000)

@@ -11,11 +11,9 @@ html, body {
     margin: 0;
 }
 
-/* Text and scrollbar colors of Windows 11, following the system theme */
 html {
     color: rgb(0 0 0 / 0.9);
     --scrollbar-thumb: rgb(0 0 0 / 0.45);
-    /* Inherited by every scrollable element */
     scrollbar-color: var(--scrollbar-thumb) transparent;
 }
 
@@ -26,8 +24,6 @@ html {
     }
 }
 
-/* Placeholder of content still loading: a soft light sweeping across, as in Windows 11.
-   Fixed to the window: every placeholder shares the same sweep, as one */
 .skeleton {
     --skeleton-base: rgb(0 0 0 / 0.05);
     --skeleton-light: rgb(0 0 0 / 0.1);

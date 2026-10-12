@@ -1,6 +1,5 @@
 import type { Ref } from 'vue'
 
-/** Becomes `true` the first time the element comes near the visible area, and stays `true`. */
 export function useVisible(element: Readonly<Ref<HTMLElement | null>>) {
   const visible = ref(false)
   let observer: IntersectionObserver | undefined
@@ -14,7 +13,6 @@ export function useVisible(element: Readonly<Ref<HTMLElement | null>>) {
           observer?.disconnect()
         }
       },
-      // Start a bit before the element scrolls into view
       { rootMargin: '200px' },
     )
     observer.observe(element.value)

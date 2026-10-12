@@ -2,14 +2,12 @@
 import { convertFileSrc } from '@tauri-apps/api/core'
 import { appDataDir, join } from '@tauri-apps/api/path'
 
-// Resolved once for every instance
 let imagesDir: Promise<string> | undefined
 const getImagesDir = () => (imagesDir ??= appDataDir().then(dir => join(dir, 'images')))
 </script>
 
 <script setup lang="ts">
 const props = defineProps<{
-  /** File name in the images folder of the app data, e.g. `<hash>.png` */
   file: string
 }>()
 
@@ -26,6 +24,5 @@ watchEffect(async () => {
 </script>
 
 <template>
-  <!-- A placeholder until the picture shows: no src yet, or still loading (not once it failed) -->
   <img :src="src" alt="" draggable="false" :class="!loaded && 'skeleton'" @load="loaded = true" @error="loaded = true">
 </template>

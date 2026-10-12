@@ -1,12 +1,9 @@
 <script setup lang="ts">
-// Spring of the background sliding from one tab to the other
 const transition = { type: 'spring', bounce: 0.15, duration: 0.4 } as const
 </script>
 
 <template>
-  <!-- Background of the open tab, behind its name. Rendered in the open tab only: the shared layoutId
-       makes Motion slide it from the previous tab, resizing it to the new one. The radius is set
-       in style so Motion keeps it round while resizing -->
+  <!-- Radius in style: Motion keeps it round while resizing -->
   <Motion
     layout-id="tab-pill"
     :transition="transition"
