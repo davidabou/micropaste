@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core'
 export interface FilePreview {
   image: string | null
   thumbnail: boolean
+  typeName: string | null
 }
 
 const previews = new Map<string, Promise<FilePreview | null>>()

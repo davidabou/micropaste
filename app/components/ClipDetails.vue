@@ -81,7 +81,7 @@ function slideOut(el: Element, done: () => void) {
 const type = computed(() => {
   if (!shown.value) return ''
   if (shown.value.kind === 'image') return 'Image'
-  if (files.value) return files.value.length > 1 ? `${files.value.length} files` : 'File'
+  if (files.value) return isGroup.value ? `${files.value.length} files` : (filePreview.value?.typeName ?? 'File')
   if (color.value) return 'Color'
   if (svgSrc.value) return 'SVG'
   if (link.value) return 'Link'

@@ -32,6 +32,33 @@ pub fn file_preview_png(_path: &str, _thumbnail_size: u32, _icon_size: u32) -> O
     None
 }
 
+/// The type the Explorer shows, like "Microsoft Word Document", in the Windows language.
+#[cfg(windows)]
+pub fn file_type_name(path: &str) -> Option<String> {
+    use windows::Win32::Storage::FileSystem::FILE_FLAGS_AND_ATTRIBUTES;
+    use windows::Win32::UI::Shell::{SHFILEINFOW, SHGFI_TYPENAME, SHGetFileInfoW};
+    use windows::core::HSTRING;
+
+    let mut info = SHFILEINFOW::default();
+    let found = unsafe {
+        SHGetFileInfoW(
+            &HSTRING::from(path),
+            FILE_FLAGS_AND_ATTRIBUTES(0),
+            Some(&mut info),
+            size_of::<SHFILEINFOW>() as u32,
+            SHGFI_TYPENAME,
+        )
+    };
+    let len = info.szTypeName.iter().position(|&c| c == 0).unwrap_or(info.szTypeName.len());
+    let name = String::from_utf16_lossy(&info.szTypeName[..len]);
+    (found != 0 && !name.is_empty()).then_some(name)
+}
+
+#[cfg(not(windows))]
+pub fn file_type_name(_path: &str) -> Option<String> {
+    None
+}
+
 #[cfg(windows)]
 mod win {
     use std::mem::size_of;

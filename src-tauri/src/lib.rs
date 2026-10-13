@@ -135,9 +135,11 @@ async fn copy_clip(app: tauri::AppHandle, id: i64) -> Result<(), String> {
 }
 
 #[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 struct FilePreview {
     image: Option<String>,
     thumbnail: bool,
+    type_name: Option<String>,
 }
 
 #[tauri::command]
@@ -146,14 +148,15 @@ async fn get_file_preview(db: tauri::State<'_, Db>, path: String) -> Result<File
     if !db::is_copied_file(&db.0.lock().unwrap(), &path).map_err(|e| e.to_string())? {
         return Err("Not a copied file".into());
     }
-    let preview = tauri::async_runtime::spawn_blocking(move || {
-        app_icon::file_preview_png(&path, app_icon::THUMBNAIL_SIZE, app_icon::FILE_ICON_SIZE)
+    let (preview, type_name) = tauri::async_runtime::spawn_blocking(move || {
+        let preview = app_icon::file_preview_png(&path, app_icon::THUMBNAIL_SIZE, app_icon::FILE_ICON_SIZE);
+        (preview, app_icon::file_type_name(&path))
     })
     .await
     .map_err(|e| e.to_string())?;
     Ok(match preview {
-        Some((png, thumbnail)) => FilePreview { image: Some(png_data_url(&png)), thumbnail },
-        None => FilePreview { image: None, thumbnail: false },
+        Some((png, thumbnail)) => FilePreview { image: Some(png_data_url(&png)), thumbnail, type_name },
+        None => FilePreview { image: None, thumbnail: false, type_name },
     })
 }
 
