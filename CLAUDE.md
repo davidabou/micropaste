@@ -35,7 +35,7 @@ Local-first, fast, with a premium, native Windows 11 design (inspired by Supaste
 | --- | --- |
 | `lib.rs` | Setup, Tauri commands |
 | `clipboard.rs` | Clipboard watching, saving copies |
-| `copy.rs` | Copying a clip back; `is_own_copy` ignores copies made from tiles |
+| `copy.rs` | Copying a clip back, or a single file of a group; `is_own_copy` ignores copies made from the window; `clip_file` only accepts paths of the clip |
 | `db.rs` | SQLite, migrations via `user_version` (bump it for any schema change) |
 | `history.rs` | Cleanup: unused for the retention set in the settings (30 days by default), except favorites and clips in collections; at startup then hourly, emits `clips-removed` |
 | `images.rs` | Images stored as PNG by hash in `$APPDATA/images` |
@@ -46,21 +46,22 @@ Local-first, fast, with a premium, native Windows 11 design (inspired by Supaste
 | `settings.rs` | Settings stored in the `settings` table: global shortcut, history retention, launch at startup |
 | `background.rs` | Tray icon, close = hide, autostart, single-instance, `--hidden`, global shortcut (Alt+Shift+V by default), window placed in the bottom right corner at launch |
 | `window_icon.rs` | Sharp window icon at the right DPI |
-| `app_icon.rs` | Source app icons, and file thumbnails as the Explorer shows them |
+| `app_icon.rs` | Source app icons, file thumbnails and file type names as the Explorer shows them |
 
 ### Frontend (`app/`)
 
 - `app.vue`: tabs, History grid always mounted, collection grids, search, favorites filter, grid/list layout, external drop.
 - `components/`: `ClipCard` (tile), `ClipGrid`, `ClipContextMenu`, `ClipDetails` (side panel), `SettingsPanel`, `ClipImage`, `AppIcon`, `CollectionTabs`, `TabPill`, `Tooltip`, `TitleBar`, `Button`, `Input`.
-- `composables/`: `useClips`, `useCollections`, `useTileDrag`, link and file previews, `useTimeAgo`, `useVisible`, `usePrefersDark`.
+- `composables/`: `useClips`, `useCollections`, `useTileDrag`, `useClipNotice` (shows a notice on a tile from anywhere), link and file previews, `useTimeAgo`, `useVisible`, `usePrefersDark`.
 - `assets/css/main.css`: global styles, including the `.skeleton` class for content still loading.
-- `utils/`: colors, SVG, links, files, `menu.ts` (shared menu animation).
+- `utils/`: colors, SVG, links, files, bytes, `menu.ts` (shared menu animation).
 
 ## Product rules
 
 - **History** = real copies (Ctrl+C). Content **dropped** from another app only goes into a collection (`in_history = 0`), never into the history, until it is actually copied.
 - External drop is only available in collections.
 - Copies made from the window have "Micropaste" as their source.
+- Copying a single file of a group creates (or brings back) a clip of that file alone at the top of the history; the group itself never changes.
 - No "restore" detection: the app mirrors the real clipboard.
 
 ## Known pitfalls
@@ -68,4 +69,6 @@ Local-first, fast, with a premium, native Windows 11 design (inspired by Supaste
 - `backdrop-filter` doesn't blur text in this (transparent) window: blur the content itself (`blur-sm`) or use `mask-image`.
 - Motion stops the animations of an unmounted element: for exits, use `<Transition>` + `animate()` on a non-Motion div, or manual presence. `AnimatePresence` `custom` doesn't work for the exit direction.
 - Performance: lazily mount anything per tile (tooltip and menu portals, corner buttons on hover).
+- Windows sometimes fails to make a file thumbnail: the file preview cache only keeps previews that worked.
+- File type names come in the Windows language while the UI is in English: accepted until the app is translated.
 - Bash heredocs mangle backslashes: use the Edit tool for code containing them. Python on Windows: write with `newline=''` (CRLF).
