@@ -124,6 +124,18 @@ async function copy() {
 }
 onBeforeUnmount(() => clearTimeout(copiedTimer))
 
+const revealError = ref<string | null>(null)
+let revealErrorTimer: ReturnType<typeof setTimeout> | undefined
+async function revealFile(path: string) {
+  if (!shown.value) return
+  await invoke('reveal_file', { id: shown.value.id, path }).catch((error) => {
+    revealError.value = typeof error === 'string' ? error : 'Couldn’t open the folder'
+    clearTimeout(revealErrorTimer)
+    revealErrorTimer = setTimeout(() => (revealError.value = null), 1800)
+  })
+}
+onBeforeUnmount(() => clearTimeout(revealErrorTimer))
+
 const fileCopy = ref<{ path: string, label: string, failed: boolean } | null>(null)
 let fileCopiedTimer: ReturnType<typeof setTimeout> | undefined
 function showFileStatus(path: string, label: string, failed = false) {
@@ -144,8 +156,8 @@ function fileCopyIcon(path: string) {
 }
 
 async function dragFile(event: DragEvent, path: string) {
-  if (!shown.value || !isGroup.value) return
   event.preventDefault()
+  if (!shown.value) return
   // Keeps the window from taking it as an external drop
   tileDragging.value = true
   await invoke('start_file_drag', { id: shown.value.id, path })
@@ -327,8 +339,23 @@ const carouselButton = 'absolute top-1/2 flex size-7 -translate-y-1/2 cursor-poi
                   <dd>{{ formatNumber(textStats.lines) }}</dd>
                 </div>
               </template>
-              <div v-if="files" class="flex flex-col gap-1.5">
-                <dt :class="label">{{ files.length > 1 ? 'Files' : 'File' }}</dt>
+              <div v-if="files && !isGroup" class="flex justify-between gap-4">
+                <dt :class="label">Location</dt>
+                <dd class="flex min-w-0">
+                  <Tooltip :content="revealError ?? 'Show in File Explorer'">
+                    <button
+                      type="button"
+                      class="-mx-1.5 -my-0.5 flex min-w-0 cursor-pointer items-center gap-1.5 rounded-md px-1.5 py-0.5 transition-colors duration-100 hover:bg-black/[3.73%] focus-visible:outline-2 focus-visible:outline-current dark:hover:bg-white/[6.05%]"
+                      @click="revealFile(files[0]!)"
+                    >
+                      <Icon name="gravity-ui:folder" class="shrink-0 text-sm opacity-60" />
+                      <span class="truncate">{{ fileName(folderOf(files[0]!)) }}</span>
+                    </button>
+                  </Tooltip>
+                </dd>
+              </div>
+              <div v-if="files && isGroup" class="flex flex-col gap-1.5">
+                <dt :class="label">Files</dt>
                 <dd v-if="commonFolder" class="flex min-w-0 items-center gap-1.5">
                   <Icon name="gravity-ui:folder" class="shrink-0 text-sm opacity-60" />
                   <Tooltip :content="commonFolder" path>
@@ -339,9 +366,9 @@ const carouselButton = 'absolute top-1/2 flex size-7 -translate-y-1/2 cursor-poi
                   <div v-for="(path, index) in files" :key="path" class="group/file relative">
                     <button
                       type="button"
-                      :draggable="isGroup"
+                      draggable="true"
                       class="flex w-full min-w-0 cursor-pointer flex-col rounded-md px-2 py-1.5 text-left transition-colors duration-100 hover:bg-black/[3.73%] dark:hover:bg-white/[6.05%]"
-                      :class="isGroup && [
+                      :class="[
                         'group-hover/file:pr-8 group-has-focus-visible/file:pr-8',
                         fileCopy?.path === path && 'pr-8',
                         index === slide && 'bg-black/[5.78%] dark:bg-white/[8.37%]'
@@ -352,7 +379,7 @@ const carouselButton = 'absolute top-1/2 flex size-7 -translate-y-1/2 cursor-poi
                       <span class="w-full truncate">{{ fileName(path) }}</span>
                       <span v-if="!commonFolder" class="w-full truncate text-xs opacity-60">{{ folderOf(path) }}</span>
                     </button>
-                    <Tooltip v-if="isGroup" :content="fileCopy?.path === path ? fileCopy.label : 'Copy this file'">
+                    <Tooltip :content="fileCopy?.path === path ? fileCopy.label : 'Copy this file'">
                       <button
                         type="button"
                         aria-label="Copy this file"

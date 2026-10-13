@@ -158,6 +158,12 @@ async fn get_file_preview(db: tauri::State<'_, Db>, path: String) -> Result<File
 }
 
 #[tauri::command]
+fn reveal_file(app: tauri::AppHandle, id: i64, path: String) -> Result<(), String> {
+    let file = copy::clip_file(&app, id, &path)?;
+    tauri_plugin_opener::reveal_item_in_dir(file).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 async fn copy_file(app: tauri::AppHandle, id: i64, path: String) -> Result<(), String> {
     copy::copy_file(&app, id, &path)
 }
@@ -362,6 +368,7 @@ pub fn run() {
             copy_file,
             delete_clip,
             get_file_preview,
+            reveal_file,
             start_drag,
             start_file_drag,
             drop_text,
