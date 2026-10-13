@@ -32,6 +32,19 @@ const commonFolder = computed(() => {
   return folders.size === 1 ? [...folders][0]! : null
 })
 
+const missing = ref(new Set<string>())
+async function checkFiles() {
+  const clip = shown.value
+  if (!clip || clip.kind !== 'files' || !open.value) return (missing.value = new Set())
+  const paths = await invoke<string[]>('missing_files', { id: clip.id }).catch(() => [])
+  if (shown.value?.id === clip.id) missing.value = new Set(paths)
+}
+watch([() => shown.value?.id, open], checkFiles, { immediate: true })
+// The files may have been deleted or restored while the window was in the background
+onMounted(() => window.addEventListener('focus', checkFiles))
+onBeforeUnmount(() => window.removeEventListener('focus', checkFiles))
+const allMissing = computed(() => !!files.value && files.value.every(path => missing.value.has(path)))
+
 const slide = ref(0)
 watch(() => shown.value?.id, () => (slide.value = 0))
 const slidePath = computed(() => files.value?.[slide.value] ?? null)
@@ -118,6 +131,7 @@ async function copy() {
   } catch (error) {
     copyFailed.value = true
     copyLabel.value = typeof error === 'string' ? error : 'Couldn’t copy'
+    checkFiles()
   }
   clearTimeout(copiedTimer)
   copiedTimer = setTimeout(() => (copyLabel.value = null), copyFailed.value ? 1800 : 1200)
@@ -127,8 +141,9 @@ onBeforeUnmount(() => clearTimeout(copiedTimer))
 const revealError = ref<string | null>(null)
 let revealErrorTimer: ReturnType<typeof setTimeout> | undefined
 async function revealFile(path: string) {
-  if (!shown.value) return
+  if (!shown.value || missing.value.has(path)) return
   await invoke('reveal_file', { id: shown.value.id, path }).catch((error) => {
+    checkFiles()
     revealError.value = typeof error === 'string' ? error : 'Couldn’t open the folder'
     clearTimeout(revealErrorTimer)
     revealErrorTimer = setTimeout(() => (revealError.value = null), 1800)
@@ -148,7 +163,10 @@ async function copyFile(path: string) {
   if (!shown.value) return
   await invoke('copy_file', { id: shown.value.id, path })
     .then(() => showFileStatus(path, 'Copied'))
-    .catch(error => showFileStatus(path, typeof error === 'string' ? error : 'Couldn’t copy', true))
+    .catch((error) => {
+      showFileStatus(path, typeof error === 'string' ? error : 'Couldn’t copy', true)
+      checkFiles()
+    })
 }
 function fileCopyIcon(path: string) {
   if (fileCopy.value?.path !== path) return 'gravity-ui:copy'
@@ -157,11 +175,14 @@ function fileCopyIcon(path: string) {
 
 async function dragFile(event: DragEvent, path: string) {
   event.preventDefault()
-  if (!shown.value) return
+  if (!shown.value || missing.value.has(path)) return
   // Keeps the window from taking it as an external drop
   tileDragging.value = true
   await invoke('start_file_drag', { id: shown.value.id, path })
-    .catch(error => showFileStatus(path, typeof error === 'string' ? error : 'Couldn’t drag', true))
+    .catch((error) => {
+      showFileStatus(path, typeof error === 'string' ? error : 'Couldn’t drag', true)
+      checkFiles()
+    })
   tileDragging.value = false
 }
 
@@ -342,10 +363,13 @@ const carouselButton = 'absolute top-1/2 flex size-7 -translate-y-1/2 cursor-poi
               <div v-if="files && !isGroup" class="flex justify-between gap-4">
                 <dt :class="label">Location</dt>
                 <dd class="flex min-w-0">
-                  <Tooltip :content="revealError ?? 'Show in File Explorer'">
+                  <Tooltip :content="revealError ?? (allMissing ? 'File not found' : 'Show in File Explorer')">
+                    <!-- aria-disabled rather than disabled: a disabled button gets no hover, so no tooltip -->
                     <button
                       type="button"
-                      class="-mx-1.5 -my-0.5 flex min-w-0 cursor-pointer items-center gap-1.5 rounded-md px-1.5 py-0.5 transition-colors duration-100 hover:bg-black/[3.73%] focus-visible:outline-2 focus-visible:outline-current dark:hover:bg-white/[6.05%]"
+                      :aria-disabled="allMissing"
+                      class="-mx-1.5 -my-0.5 flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-0.5 transition-colors duration-100 focus-visible:outline-2 focus-visible:outline-current"
+                      :class="allMissing ? 'opacity-50' : 'cursor-pointer hover:bg-black/[3.73%] dark:hover:bg-white/[6.05%]'"
                       @click="revealFile(files[0]!)"
                     >
                       <Icon name="gravity-ui:folder" class="shrink-0 text-sm opacity-60" />
@@ -366,10 +390,10 @@ const carouselButton = 'absolute top-1/2 flex size-7 -translate-y-1/2 cursor-poi
                   <div v-for="(path, index) in files" :key="path" class="group/file relative">
                     <button
                       type="button"
-                      draggable="true"
+                      :draggable="!missing.has(path)"
                       class="flex w-full min-w-0 cursor-pointer flex-col rounded-md px-2 py-1.5 text-left transition-colors duration-100 hover:bg-black/[3.73%] dark:hover:bg-white/[6.05%]"
                       :class="[
-                        'group-hover/file:pr-8 group-has-focus-visible/file:pr-8',
+                        missing.has(path) ? 'opacity-50' : 'group-hover/file:pr-8 group-has-focus-visible/file:pr-8',
                         fileCopy?.path === path && 'pr-8',
                         index === slide && 'bg-black/[5.78%] dark:bg-white/[8.37%]'
                       ]"
@@ -379,7 +403,7 @@ const carouselButton = 'absolute top-1/2 flex size-7 -translate-y-1/2 cursor-poi
                       <span class="w-full truncate">{{ fileName(path) }}</span>
                       <span v-if="!commonFolder" class="w-full truncate text-xs opacity-60">{{ folderOf(path) }}</span>
                     </button>
-                    <Tooltip :content="fileCopy?.path === path ? fileCopy.label : 'Copy this file'">
+                    <Tooltip v-if="!missing.has(path) || fileCopy?.path === path" :content="fileCopy?.path === path ? fileCopy.label : 'Copy this file'">
                       <button
                         type="button"
                         aria-label="Copy this file"
@@ -401,6 +425,7 @@ const carouselButton = 'absolute top-1/2 flex size-7 -translate-y-1/2 cursor-poi
               variant="filled"
               :icon="copyLabel && copyFailed ? 'gravity-ui:circle-xmark' : 'gravity-ui:copy'"
               class="flex-1"
+              :disabled="allMissing"
               @click="copy"
             >
               {{ copyLabel ?? 'Copy' }}

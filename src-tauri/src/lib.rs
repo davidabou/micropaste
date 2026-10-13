@@ -167,6 +167,15 @@ fn reveal_file(app: tauri::AppHandle, id: i64, path: String) -> Result<(), Strin
 }
 
 #[tauri::command]
+async fn missing_files(db: tauri::State<'_, Db>, id: i64) -> Result<Vec<String>, String> {
+    let clip = db::get(&db.0.lock().unwrap(), id).map_err(|e| e.to_string())?;
+    if clip.kind != "files" {
+        return Ok(Vec::new());
+    }
+    Ok(clip.content.lines().filter(|path| !std::path::Path::new(path).exists()).map(String::from).collect())
+}
+
+#[tauri::command]
 async fn copy_file(app: tauri::AppHandle, id: i64, path: String) -> Result<(), String> {
     copy::copy_file(&app, id, &path)
 }
@@ -372,6 +381,7 @@ pub fn run() {
             delete_clip,
             get_file_preview,
             reveal_file,
+            missing_files,
             start_drag,
             start_file_drag,
             drop_text,
