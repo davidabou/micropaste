@@ -20,6 +20,8 @@ export function useFilePreview(path: MaybeRefOrGetter<string | null>, enabled: M
       previews.set(current, invoke<FilePreview>('get_file_preview', { path: current }).catch(() => null))
     }
     const loaded = await previews.get(current)!
+    // A missing file may be restored: only previews that worked are kept
+    if (!loaded?.image) previews.delete(current)
     if (toValue(path) === current) preview.value = loaded
   })
 

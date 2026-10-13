@@ -44,12 +44,15 @@ watch([() => shown.value?.id, open], checkFiles, { immediate: true })
 onMounted(() => window.addEventListener('focus', checkFiles))
 onBeforeUnmount(() => window.removeEventListener('focus', checkFiles))
 const allMissing = computed(() => !!files.value && files.value.every(path => missing.value.has(path)))
+const existing = (path: string | null | undefined) => (path && !missing.value.has(path) ? path : null)
 
 const slide = ref(0)
 watch(() => shown.value?.id, () => (slide.value = 0))
 const slidePath = computed(() => files.value?.[slide.value] ?? null)
-const filePreview = useFilePreview(slidePath, open)
-useFilePreview(() => (isGroup.value ? files.value![(slide.value + 1) % files.value!.length]! : null), open)
+const slideMissing = computed(() => !!slidePath.value && missing.value.has(slidePath.value))
+// Reloaded when a missing file comes back
+const filePreview = useFilePreview(() => existing(slidePath.value), open)
+useFilePreview(() => (isGroup.value ? existing(files.value![(slide.value + 1) % files.value!.length]) : null), open)
 let slideForward = true
 function go(step: number) {
   if (!files.value || !isGroup.value) return
@@ -261,7 +264,7 @@ const carouselButton = 'absolute top-1/2 flex size-7 -translate-y-1/2 cursor-poi
                       alt=""
                       :class="filePreview.thumbnail ? 'size-full object-contain' : 'size-20 object-contain'"
                     >
-                    <Icon v-else-if="filePreview" name="gravity-ui:file-xmark" class="text-[64px] opacity-40" />
+                    <Icon v-else-if="filePreview || slideMissing" name="gravity-ui:file-xmark" class="text-[64px] opacity-40" />
                   </div>
                 </Transition>
                 <template v-if="isGroup">
