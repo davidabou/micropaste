@@ -63,6 +63,9 @@ async function copy() {
 }
 
 onBeforeUnmount(() => clearTimeout(noticeTimer))
+watch(clipNotice, (shown) => {
+  if (shown?.clip === props.clip.id) showNotice(shown.text)
+})
 
 defineExpose({ copy })
 
@@ -361,13 +364,13 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
         >
           <Motion
             as="span"
-            class="flex items-center gap-1.5 text-sm font-semibold"
+            class="flex max-w-full min-w-0 items-center gap-1.5 px-3 text-sm font-semibold"
             :initial="{ scale: 0.85 }"
             :animate="{ scale: 1 }"
             :transition="{ type: 'spring', bounce: 0.4, duration: 0.35 }"
           >
             <Icon :name="notice.error ? 'gravity-ui:circle-xmark-fill' : 'gravity-ui:circle-check-fill'" class="shrink-0 text-base" />
-            {{ notice.text }}
+            <span class="truncate">{{ notice.text }}</span>
           </Motion>
         </Motion>
       </AnimatePresence>

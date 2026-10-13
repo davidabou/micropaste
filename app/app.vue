@@ -60,8 +60,20 @@ async function toggleDetailsFavorite(clip: Clip) {
   if (detailsClip.value?.id === updated.id) detailsClip.value = updated
 }
 
+const collectionName = (id: number) => collections.value.find(c => c.id === id)?.name ?? 'collection'
+async function addTo(clip: Clip, collectionId: number) {
+  await addToCollection(clip, collectionId)
+  notifyClip(clip.id, `Added to ${collectionName(collectionId)}`)
+}
+async function removeFrom(clip: Clip, collectionId: number) {
+  const shown = collectionId === shownCollection.value
+  await removeFromCollection(clip, collectionId)
+  // Removed from the open collection, the tile leaves: that's feedback enough
+  if (!shown) notifyClip(clip.id, `Removed from ${collectionName(collectionId)}`)
+}
+
 function onDropClip(collectionId: number) {
-  if (draggedClip.value) addToCollection(draggedClip.value, collectionId)
+  if (draggedClip.value) addTo(draggedClip.value, collectionId)
 }
 
 const searchInput = useTemplateRef<{ focus: () => void }>('searchInput')
@@ -180,8 +192,8 @@ onBeforeUnmount(() => {
           @copy="copy"
           @favorite="toggleFavorite"
           @delete="remove"
-          @add="addToCollection"
-          @remove-from="removeFromCollection"
+          @add="addTo"
+          @remove-from="removeFrom"
         >
           <p v-if="emptyMessage(historyClips, false)" class="col-span-full py-16 text-center text-sm opacity-60">
             {{ emptyMessage(historyClips, false) }}
@@ -206,8 +218,8 @@ onBeforeUnmount(() => {
               @copy="copy"
               @favorite="toggleFavorite"
               @delete="remove"
-              @add="addToCollection"
-              @remove-from="removeFromCollection"
+              @add="addTo"
+              @remove-from="removeFrom"
             >
               <p v-if="emptyMessage(openCollectionClips, true)" class="col-span-full py-16 text-center text-sm opacity-60">
                 {{ emptyMessage(openCollectionClips, true) }}
