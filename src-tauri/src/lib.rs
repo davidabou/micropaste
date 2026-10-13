@@ -158,8 +158,18 @@ async fn get_file_preview(db: tauri::State<'_, Db>, path: String) -> Result<File
 }
 
 #[tauri::command]
+async fn copy_file(app: tauri::AppHandle, id: i64, path: String) -> Result<(), String> {
+    copy::copy_file(&app, id, &path)
+}
+
+#[tauri::command]
 async fn start_drag(app: tauri::AppHandle, window: tauri::Window, id: i64) -> Result<(), String> {
     drag_out::start(&app, window, id)
+}
+
+#[tauri::command]
+async fn start_file_drag(app: tauri::AppHandle, window: tauri::Window, id: i64, path: String) -> Result<(), String> {
+    drag_out::start_file(&app, window, id, &path)
 }
 
 #[tauri::command]
@@ -349,9 +359,11 @@ pub fn run() {
             clip_collections,
             get_app_icon,
             copy_clip,
+            copy_file,
             delete_clip,
             get_file_preview,
             start_drag,
+            start_file_drag,
             drop_text,
             drop_image,
             get_link_preview,

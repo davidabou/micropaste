@@ -8,14 +8,18 @@ pub struct SourceApp {
     pub path: String,
 }
 
+pub fn micropaste() -> Option<SourceApp> {
+    let exe = std::env::current_exe().ok()?.to_string_lossy().into_owned();
+    Some(SourceApp { name: "Micropaste".to_owned(), path: exe })
+}
+
 #[cfg(windows)]
 pub fn detect() -> Option<SourceApp> {
     use windows::Win32::System::DataExchange::GetClipboardOwner;
     use windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow;
 
     if is_own_window() {
-        let exe = std::env::current_exe().ok()?.to_string_lossy().into_owned();
-        return Some(SourceApp { name: "Micropaste".to_owned(), path: exe });
+        return micropaste();
     }
 
     let owner = unsafe { GetClipboardOwner() }.ok().and_then(win::process_of_window);

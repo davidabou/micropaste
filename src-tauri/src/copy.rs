@@ -1,11 +1,11 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use arboard::{Clipboard, ImageData};
 use tauri::{AppHandle, Emitter, Manager};
 
-use crate::clipboard::{CLIP_ADDED_EVENT, now_ms};
-use crate::db::{self, Db};
+use crate::clipboard::{CLIP_ADDED_EVENT, now_ms, total_size};
+use crate::db::{self, Db, NewClip};
 use crate::images;
 
 static COPIED_SEQUENCE: AtomicU32 = AtomicU32::new(0);
@@ -48,6 +48,34 @@ pub fn copy(app: &AppHandle, id: i64) -> Result<(), String> {
     COPIED_SEQUENCE.store(clipboard_sequence(), Ordering::SeqCst);
 
     let clip = db::touch(&db.0.lock().unwrap(), id, now_ms()).map_err(|e| e.to_string())?;
+    let _ = app.emit(CLIP_ADDED_EVENT, clip);
+    Ok(())
+}
+
+/// One file of a files clip. Only paths of that clip are accepted, not arbitrary files.
+pub fn clip_file(app: &AppHandle, id: i64, path: &str) -> Result<PathBuf, String> {
+    let clip = db::get(&app.state::<Db>().0.lock().unwrap(), id).map_err(|e| e.to_string())?;
+    if clip.kind != "files" || !clip.content.lines().any(|line| line == path) {
+        return Err("Not a copied file".into());
+    }
+    let path = PathBuf::from(path);
+    if !path.exists() {
+        return Err("File not found".into());
+    }
+    Ok(path)
+}
+
+/// Copies a single file of a group: like a real copy, it goes to the top of the history.
+pub fn copy_file(app: &AppHandle, id: i64, path: &str) -> Result<(), String> {
+    let file = clip_file(app, id, path)?;
+    let mut clipboard = Clipboard::new().map_err(|e| e.to_string())?;
+    clipboard.set().file_list(&[file]).map_err(|e| e.to_string())?;
+    COPIED_SEQUENCE.store(clipboard_sequence(), Ordering::SeqCst);
+
+    let db = app.state::<Db>();
+    let source = crate::source_app::micropaste();
+    let new_clip = NewClip::Files { paths: path, byte_size: total_size(path) };
+    let clip = db::save(&db.0.lock().unwrap(), new_clip, source.as_ref(), now_ms()).map_err(|e| e.to_string())?;
     let _ = app.emit(CLIP_ADDED_EVENT, clip);
     Ok(())
 }

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { invoke } from '@tauri-apps/api/core'
 import { animate } from 'motion-v'
 import type { Clip } from '~/composables/useClips'
 
@@ -122,6 +123,35 @@ async function copy() {
   copiedTimer = setTimeout(() => (copyLabel.value = null), copyFailed.value ? 1800 : 1200)
 }
 onBeforeUnmount(() => clearTimeout(copiedTimer))
+
+const fileCopy = ref<{ path: string, label: string, failed: boolean } | null>(null)
+let fileCopiedTimer: ReturnType<typeof setTimeout> | undefined
+function showFileStatus(path: string, label: string, failed = false) {
+  fileCopy.value = { path, label, failed }
+  clearTimeout(fileCopiedTimer)
+  fileCopiedTimer = setTimeout(() => (fileCopy.value = null), failed ? 1800 : 1200)
+}
+onBeforeUnmount(() => clearTimeout(fileCopiedTimer))
+async function copyFile(path: string) {
+  if (!shown.value) return
+  await invoke('copy_file', { id: shown.value.id, path })
+    .then(() => showFileStatus(path, 'Copied'))
+    .catch(error => showFileStatus(path, typeof error === 'string' ? error : 'Couldn’t copy', true))
+}
+function fileCopyIcon(path: string) {
+  if (fileCopy.value?.path !== path) return 'gravity-ui:copy'
+  return fileCopy.value.failed ? 'gravity-ui:circle-xmark' : 'gravity-ui:check'
+}
+
+async function dragFile(event: DragEvent, path: string) {
+  if (!shown.value || !isGroup.value) return
+  event.preventDefault()
+  // Keeps the window from taking it as an external drop
+  tileDragging.value = true
+  await invoke('start_file_drag', { id: shown.value.id, path })
+    .catch(error => showFileStatus(path, typeof error === 'string' ? error : 'Couldn’t drag', true))
+  tileDragging.value = false
+}
 
 const rendered = ref(false)
 let unmountTimer: ReturnType<typeof setTimeout> | undefined
@@ -306,17 +336,34 @@ const carouselButton = 'absolute top-1/2 flex size-7 -translate-y-1/2 cursor-poi
                   </Tooltip>
                 </dd>
                 <dd class="flex flex-col">
-                  <button
-                    v-for="(path, index) in files"
-                    :key="path"
-                    type="button"
-                    class="flex min-w-0 cursor-pointer flex-col rounded-md px-2 py-1.5 text-left transition-colors duration-100 hover:bg-black/[3.73%] dark:hover:bg-white/[6.05%]"
-                    :class="isGroup && index === slide && 'bg-black/[5.78%] dark:bg-white/[8.37%]'"
-                    @click="goTo(index)"
-                  >
-                    <span class="truncate">{{ fileName(path) }}</span>
-                    <span v-if="!commonFolder" class="truncate text-xs opacity-60">{{ folderOf(path) }}</span>
-                  </button>
+                  <div v-for="(path, index) in files" :key="path" class="group/file relative">
+                    <button
+                      type="button"
+                      :draggable="isGroup"
+                      class="flex w-full min-w-0 cursor-pointer flex-col rounded-md px-2 py-1.5 text-left transition-colors duration-100 hover:bg-black/[3.73%] dark:hover:bg-white/[6.05%]"
+                      :class="isGroup && [
+                        'group-hover/file:pr-8 group-has-focus-visible/file:pr-8',
+                        fileCopy?.path === path && 'pr-8',
+                        index === slide && 'bg-black/[5.78%] dark:bg-white/[8.37%]'
+                      ]"
+                      @click="goTo(index)"
+                      @dragstart="dragFile($event, path)"
+                    >
+                      <span class="w-full truncate">{{ fileName(path) }}</span>
+                      <span v-if="!commonFolder" class="w-full truncate text-xs opacity-60">{{ folderOf(path) }}</span>
+                    </button>
+                    <Tooltip v-if="isGroup" :content="fileCopy?.path === path ? fileCopy.label : 'Copy this file'">
+                      <button
+                        type="button"
+                        aria-label="Copy this file"
+                        class="absolute top-1/2 right-1.5 flex size-6 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md opacity-0 group-hover/file:opacity-60 hover:opacity-100! focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-current"
+                        :class="fileCopy?.path === path && 'opacity-100!'"
+                        @click="copyFile(path)"
+                      >
+                        <Icon :name="fileCopyIcon(path)" class="text-base" />
+                      </button>
+                    </Tooltip>
+                  </div>
                 </dd>
               </div>
             </dl>

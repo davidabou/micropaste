@@ -17,10 +17,19 @@ pub fn start(app: &AppHandle, window: Window, id: i64) -> Result<(), String> {
         "files" => clip.content.lines().map(PathBuf::from).filter(|path| path.exists()).collect(),
         _ => return Err("Only images and files are dragged natively".into()),
     };
-    let Some(first) = paths.first() else {
+    if paths.is_empty() {
         return Err(crate::copy::files_not_found(&clip.content));
-    };
-    let preview = app_icon::file_preview_png(&first.to_string_lossy(), DRAG_THUMBNAIL_SIZE, DRAG_ICON_SIZE)
+    }
+    drag(app, window, paths)
+}
+
+pub fn start_file(app: &AppHandle, window: Window, id: i64, path: &str) -> Result<(), String> {
+    let file = crate::copy::clip_file(app, id, path)?;
+    drag(app, window, vec![file])
+}
+
+fn drag(app: &AppHandle, window: Window, paths: Vec<PathBuf>) -> Result<(), String> {
+    let preview = app_icon::file_preview_png(&paths[0].to_string_lossy(), DRAG_THUMBNAIL_SIZE, DRAG_ICON_SIZE)
         .map(|(png, _)| png)
         .unwrap_or_default();
 
