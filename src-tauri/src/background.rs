@@ -27,6 +27,12 @@ pub fn show_window(app: &AppHandle) {
     }
 }
 
+pub fn hide_window(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.hide();
+    }
+}
+
 fn toggle_window(app: &AppHandle) {
     let Some(window) = app.get_webview_window("main") else { return };
     let in_front = window.is_visible().unwrap_or(false)

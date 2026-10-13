@@ -108,7 +108,9 @@ function confirmDelete(clip: Clip) {
   else if (action === 'remove' && props.collection !== null) emit('removeFrom', clip, props.collection)
 }
 const cancelOnEscape = (event: KeyboardEvent) => {
-  if (event.key === 'Escape') pending.value = null
+  if (event.key !== 'Escape') return
+  event.preventDefault()
+  pending.value = null
 }
 const cancelOnOutsideClick = (event: PointerEvent) => {
   if (!(event.target as Element | null)?.closest('[data-delete-confirm]')) pending.value = null

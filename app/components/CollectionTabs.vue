@@ -111,7 +111,9 @@ async function confirmDelete(id: number) {
   deleteBubbleFor.value = null
 }
 const cancelDeleteOnEscape = (event: KeyboardEvent) => {
-  if (event.key === 'Escape') confirmingDelete.value = null
+  if (event.key !== 'Escape') return
+  event.preventDefault()
+  confirmingDelete.value = null
 }
 const cancelDeleteOnOutsideClick = (event: PointerEvent) => {
   if (!(event.target as Element | null)?.closest('[data-collection-delete-confirm]')) confirmingDelete.value = null
@@ -256,7 +258,7 @@ const tabSlide = { type: 'spring', bounce: 0.2, duration: 0.4 } as const
                   :style="{ width: `${nameWidth}px` }"
                   spellcheck="false"
                   @keydown.enter="commit"
-                  @keydown.esc="cancel"
+                  @keydown.esc.prevent="cancel"
                   @blur="commit"
                 >
               </Motion>
@@ -346,7 +348,7 @@ const tabSlide = { type: 'spring', bounce: 0.2, duration: 0.4 } as const
                 :transition="{ duration: 0.15 }"
                 @input="draft = ($event.target as HTMLInputElement).value"
                 @keydown.enter="commit"
-                @keydown.esc="cancel"
+                @keydown.esc.prevent="cancel"
                 @blur="commit"
               />
             </AnimatePresence>

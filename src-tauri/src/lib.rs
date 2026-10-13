@@ -312,6 +312,11 @@ fn set_launch_at_startup(app: tauri::AppHandle, enabled: bool) -> Result<bool, S
     settings::set_launch_at_startup(&app, enabled)
 }
 
+#[tauri::command]
+fn hide_window(app: tauri::AppHandle) {
+    background::hide_window(&app);
+}
+
 fn backfill_image_sizes(conn: &rusqlite::Connection, images_dir: &std::path::Path) {
     let Ok(images) = db::images_without_size(conn) else { return };
     for (id, hash) in images {
@@ -393,7 +398,8 @@ pub fn run() {
             set_recording_shortcut,
             set_retention_days,
             count_expiring_clips,
-            set_launch_at_startup
+            set_launch_at_startup,
+            hide_window
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { invoke } from '@tauri-apps/api/core'
 import { animate } from 'motion-v'
 
 const search = ref('')
@@ -82,6 +83,20 @@ function onKeydown(event: KeyboardEvent) {
     event.preventDefault()
     searchInput.value?.focus()
   }
+  if (event.key === 'Escape' && !event.isComposing) hideOnEscape(event)
+}
+
+function hideOnEscape(event: KeyboardEvent) {
+  // Reka layers listen on the window too, after this listener, and don't mark the event
+  const layerOpen = document.querySelector('[data-dismissable-layer]') !== null
+  setTimeout(() => {
+    if (!layerOpen && !event.defaultPrevented) invoke('hide_window')
+  })
+}
+function onSearchEscape(event: KeyboardEvent) {
+  if (!search.value) return
+  event.preventDefault()
+  search.value = ''
 }
 const externalDrop = ref(false)
 const shownCollectionName = computed(() => collections.value.find(c => c.id === shownCollection.value)?.name)
@@ -154,7 +169,7 @@ onBeforeUnmount(() => {
           icon="gravity-ui:magnifier"
           placeholder="Search…"
           spellcheck="false"
-          @keydown.esc="search = ''"
+          @keydown.esc="onSearchEscape"
         />
         <Tooltip :content="favoritesOnly ? 'Show all clips' : 'Show favorites only'">
           <Button
