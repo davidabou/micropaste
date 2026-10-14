@@ -135,13 +135,14 @@ const color = computed(() => (props.clip.kind === 'text' ? copiedColor(props.cli
 
 const link = computed(() => (props.clip.kind === 'text' ? copiedLink(props.clip.content) : null))
 const root = useTemplateRef<HTMLElement>('root')
-// Not `useElementVisibility` with `once`: it can stop on a `false` and stay hidden for good
+// Relative to the grid: it slides in from off-screen
+const scroller = computed(() => root.value?.closest<HTMLElement>('[data-clip-scroller]') ?? null)
 const visible = ref(false)
 const { stop: stopWatchingVisibility } = useIntersectionObserver(root, ([entry]) => {
   if (!entry?.isIntersecting) return
   visible.value = true
   stopWatchingVisibility()
-}, { rootMargin: '200px' })
+}, { root: scroller, rootMargin: '200px' })
 const linkPreview = useLinkPreview(link, visible)
 const preview = computed(() =>
   linkPreview.value && (linkPreview.value.title || linkPreview.value.image) ? linkPreview.value : null
