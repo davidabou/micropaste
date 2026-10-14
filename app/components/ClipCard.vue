@@ -30,22 +30,20 @@ function cornerAnimation(index: number) {
     : { ...cornerHidden, transition: { duration: 0.12 } }
 }
 const actionsMounted = ref(false)
-let unmountActions: ReturnType<typeof setTimeout> | undefined
+const { start: unmountActionsLater, stop: keepActions } = useTimeoutFn(() => (actionsMounted.value = false), 150, { immediate: false })
 watch(actionsShown, (shown) => {
-  clearTimeout(unmountActions)
-  if (shown) actionsMounted.value = true
-  else unmountActions = setTimeout(() => (actionsMounted.value = false), 150)
+  if (!shown) return unmountActionsLater()
+  keepActions()
+  actionsMounted.value = true
 })
-onBeforeUnmount(() => clearTimeout(unmountActions))
 
 const notice = ref<{ text: string, error: boolean } | null>(null)
 const copying = ref(false)
-let noticeTimer: ReturnType<typeof setTimeout> | undefined
+const { start: hideNoticeLater } = useTimeoutFn(() => (notice.value = null), () => (notice.value?.error ? 1800 : 1200), { immediate: false })
 
 function showNotice(text: string, error = false) {
-  clearTimeout(noticeTimer)
   notice.value = { text, error }
-  noticeTimer = setTimeout(() => (notice.value = null), error ? 1800 : 1200)
+  hideNoticeLater()
 }
 
 const errorText = (error: unknown) => (typeof error === 'string' ? error : 'Couldn’t copy')
@@ -62,7 +60,6 @@ async function copy() {
   }
 }
 
-onBeforeUnmount(() => clearTimeout(noticeTimer))
 watch(clipNotice, (shown) => {
   if (shown?.clip === props.clip.id) showNotice(shown.text)
 })
@@ -71,29 +68,23 @@ defineExpose({ copy })
 
 const dragging = ref(false)
 const tileSpring = { type: 'spring', bounce: 0, duration: 0.2 } as const
-const stopDragging = () => (dragging.value = false)
+const watchingDragEnd = ref(false)
+useEventListener(() => (watchingDragEnd.value ? window : null), 'pointermove', () => (dragging.value = false))
 
 // Not Motion's `whilePress`: once a drag starts, the button never gets its `pointerup` and would stay shrunk
 const pressed = ref(false)
-const release = () => {
-  pressed.value = false
-  window.removeEventListener('pointerup', release)
-  window.removeEventListener('pointercancel', release)
-}
+const release = () => (pressed.value = false)
+useEventListener(() => (pressed.value ? window : null), ['pointerup', 'pointercancel'], release)
 function press(event: PointerEvent) {
-  if (event.button !== 0) return
-  pressed.value = true
-  window.addEventListener('pointerup', release)
-  window.addEventListener('pointercancel', release)
+  if (event.button === 0) pressed.value = true
 }
-onBeforeUnmount(release)
 
 watch(dragging, (isDragging) => {
   tileDragging.value = isDragging
-  if (!isDragging) draggedClip.value = null
-  if (!isDragging) window.removeEventListener('pointermove', stopDragging)
+  if (isDragging) return
+  draggedClip.value = null
+  watchingDragEnd.value = false
 })
-onBeforeUnmount(() => window.removeEventListener('pointermove', stopDragging))
 
 // The webview snapshots the tile wrongly on its own (the whole page moves along), and without
 // the Mica behind it: the tile is made opaque, in the same color, for the snapshot only
@@ -122,7 +113,7 @@ async function onDragStart(event: DragEvent) {
     // `dragend` doesn't always reach the page once dropped in another app. The page gets
     // no mouse moves during a webview drag, so the first one back means the drag is over.
     // Next frame: skips a move that might still come along with the drag start
-    requestAnimationFrame(() => window.addEventListener('pointermove', stopDragging, { once: true }))
+    requestAnimationFrame(() => (watchingDragEnd.value = dragging.value))
     return
   }
   event.preventDefault()
@@ -130,7 +121,7 @@ async function onDragStart(event: DragEvent) {
   dragging.value = false
 }
 
-const timeAgo = useTimeAgo(() => props.clip.createdAt)
+const timeAgo = useTimeAgo(() => props.clip.createdAt, compactTimeAgo)
 const isImage = computed(() => props.clip.kind === 'image')
 
 const prefersDark = usePrefersDark()
@@ -144,7 +135,7 @@ const color = computed(() => (props.clip.kind === 'text' ? copiedColor(props.cli
 
 const link = computed(() => (props.clip.kind === 'text' ? copiedLink(props.clip.content) : null))
 const root = useTemplateRef<HTMLElement>('root')
-const visible = useVisible(root)
+const visible = useElementVisibility(root, { rootMargin: '200px', once: true })
 const linkPreview = useLinkPreview(link, visible)
 const preview = computed(() =>
   linkPreview.value && (linkPreview.value.title || linkPreview.value.image) ? linkPreview.value : null

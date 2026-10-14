@@ -65,11 +65,7 @@ const cancelRetentionOnOutsideClick = (event: PointerEvent) => {
 function keepOpenOnCancellingClick(event: CustomEvent<{ originalEvent: PointerEvent }>) {
   if (event.detail.originalEvent === cancellingClick) event.preventDefault()
 }
-watch(pendingRetention, (pending) => {
-  window.removeEventListener('pointerdown', cancelRetentionOnOutsideClick, true)
-  if (pending) window.addEventListener('pointerdown', cancelRetentionOnOutsideClick, true)
-})
-onBeforeUnmount(() => window.removeEventListener('pointerdown', cancelRetentionOnOutsideClick, true))
+useEventListener(() => (pendingRetention.value ? window : null), 'pointerdown', cancelRetentionOnOutsideClick, { capture: true })
 function onConfirmAnimated() {
   if (!pendingRetention.value) confirmShown.value = false
 }
@@ -111,14 +107,13 @@ function startRecording() {
   shortcutError.value = null
   recording.value = true
   invoke('set_recording_shortcut', { recording: true })
-  window.addEventListener('keydown', onRecordKey, true)
 }
 function stopRecording() {
   if (!recording.value) return
   recording.value = false
   invoke('set_recording_shortcut', { recording: false })
-  window.removeEventListener('keydown', onRecordKey, true)
 }
+useEventListener(() => (recording.value ? window : null), 'keydown', onRecordKey, { capture: true })
 async function onRecordKey(event: KeyboardEvent) {
   event.preventDefault()
   event.stopPropagation()
@@ -154,14 +149,16 @@ onBeforeUnmount(() => {
 })
 
 const rendered = ref(false)
-let unmountTimer: ReturnType<typeof setTimeout> | undefined
+// In case the end of the animation isn't reported
+const { start: unmountLater, stop: keepMounted } = useTimeoutFn(() => (rendered.value = false), 500, { immediate: false })
 watch(() => props.open, (open) => {
-  clearTimeout(unmountTimer)
-  if (open) rendered.value = true
-  // In case the end of the animation isn't reported
-  else unmountTimer = setTimeout(() => (rendered.value = false), 500)
+  if (open) {
+    keepMounted()
+    rendered.value = true
+  } else if (rendered.value) {
+    unmountLater()
+  }
 }, { immediate: true })
-onBeforeUnmount(() => clearTimeout(unmountTimer))
 const panelAnimation = computed(() =>
   props.open
     ? { x: 0, transition: { type: 'spring' as const, bounce: 0.15, visualDuration: 0.3 } }

@@ -110,25 +110,14 @@ async function confirmDelete(id: number) {
   confirmingDelete.value = null
   deleteBubbleFor.value = null
 }
-const cancelDeleteOnEscape = (event: KeyboardEvent) => {
-  if (event.key !== 'Escape') return
+const confirming = () => (confirmingDelete.value === null ? null : window)
+onKeyStroke('Escape', (event) => {
   event.preventDefault()
   confirmingDelete.value = null
-}
-const cancelDeleteOnOutsideClick = (event: PointerEvent) => {
+}, { target: confirming })
+useEventListener(confirming, 'pointerdown', (event: PointerEvent) => {
   if (!(event.target as Element | null)?.closest('[data-collection-delete-confirm]')) confirmingDelete.value = null
-}
-function stopListeningForCancel() {
-  window.removeEventListener('keydown', cancelDeleteOnEscape)
-  window.removeEventListener('pointerdown', cancelDeleteOnOutsideClick, true)
-}
-watch(confirmingDelete, (id) => {
-  stopListeningForCancel()
-  if (id === null) return
-  window.addEventListener('keydown', cancelDeleteOnEscape)
-  window.addEventListener('pointerdown', cancelDeleteOnOutsideClick, true)
-})
-onBeforeUnmount(stopListeningForCancel)
+}, { capture: true })
 function onDeleteBubbleAnimated() {
   if (confirmingDelete.value === null) deleteBubbleFor.value = null
 }

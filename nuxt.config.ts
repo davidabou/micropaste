@@ -4,7 +4,7 @@ import tailwindcss from '@tailwindcss/vite'
 const host = process.env.TAURI_DEV_HOST
 
 export default defineNuxtConfig({
-  modules: ['@nuxt/fonts', '@nuxt/icon/module', 'motion-v/nuxt', 'reka-ui/nuxt'],
+  modules: ['@nuxt/fonts', '@nuxt/icon/module', 'motion-v/nuxt', 'reka-ui/nuxt', '@vueuse/nuxt'],
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
   app: {

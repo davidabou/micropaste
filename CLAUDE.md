@@ -25,6 +25,7 @@ Local-first, fast, with a premium, native Windows 11 design (inspired by Supaste
 - **Nuxt 4** (`app/`, static output via `nuxt generate`), **Tailwind v4**.
 - **Reka UI** (`reka-ui/nuxt`) for Dialog, ContextMenu, Tooltip, AlertDialog…
 - **motion-v** (`motion-v/nuxt`) for all animations (springs).
+- **VueUse** (`@vueuse/nuxt`, auto-imported): prefer its composables over hand-written listeners, timers and observers.
 - **@nuxt/icon** with the `gravity-ui` collection. Any new icon requires a full restart of `tauri dev`.
 
 ## Architecture
@@ -52,9 +53,9 @@ Local-first, fast, with a premium, native Windows 11 design (inspired by Supaste
 
 - `app.vue`: tabs, History grid always mounted, collection grids, search, favorites filter, grid/list layout, external drop.
 - `components/`: `ClipCard` (tile), `ClipGrid`, `ClipContextMenu`, `ClipDetails` (side panel), `SettingsPanel`, `ClipImage`, `AppIcon`, `CollectionTabs`, `TabPill`, `Tooltip`, `TitleBar`, `Button`, `Input`.
-- `composables/`: `useClips`, `useCollections`, `useTileDrag`, `useClipNotice` (shows a notice on a tile from anywhere), link and file previews, `useTimeAgo`, `useVisible`, `usePrefersDark`.
+- `composables/`: `useClips`, `useCollections`, `useTileDrag`, `useClipNotice` (shows a notice on a tile from anywhere), link and file previews, `usePrefersDark` (VueUse's `usePreferredDark`, shared by every tile).
 - `assets/css/main.css`: global styles, including the `.skeleton` class for content still loading.
-- `utils/`: colors, SVG, links, files, bytes, `menu.ts` (shared menu animation).
+- `utils/`: colors, SVG, links, files, bytes, `timeAgo.ts` (compact format for VueUse's `useTimeAgo`), `menu.ts` (shared menu animation).
 
 ## Product rules
 

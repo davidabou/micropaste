@@ -41,8 +41,7 @@ async function checkFiles() {
 }
 watch([() => shown.value?.id, open], checkFiles, { immediate: true })
 // The files may have been deleted or restored while the window was in the background
-onMounted(() => window.addEventListener('focus', checkFiles))
-onBeforeUnmount(() => window.removeEventListener('focus', checkFiles))
+useEventListener('focus', () => checkFiles())
 const allMissing = computed(() => !!files.value && files.value.every(path => missing.value.has(path)))
 const existing = (path: string | null | undefined) => (path && !missing.value.has(path) ? path : null)
 
@@ -124,7 +123,7 @@ const formatNumber = (value: number) => value.toLocaleString('en-US')
 
 const copyLabel = ref<string | null>(null)
 const copyFailed = ref(false)
-let copiedTimer: ReturnType<typeof setTimeout> | undefined
+const { start: clearCopyLabelLater } = useTimeoutFn(() => (copyLabel.value = null), () => (copyFailed.value ? 1800 : 1200), { immediate: false })
 async function copy() {
   if (!shown.value) return
   try {
@@ -136,32 +135,26 @@ async function copy() {
     copyLabel.value = typeof error === 'string' ? error : 'Couldn’t copy'
     checkFiles()
   }
-  clearTimeout(copiedTimer)
-  copiedTimer = setTimeout(() => (copyLabel.value = null), copyFailed.value ? 1800 : 1200)
+  clearCopyLabelLater()
 }
-onBeforeUnmount(() => clearTimeout(copiedTimer))
 
 const revealError = ref<string | null>(null)
-let revealErrorTimer: ReturnType<typeof setTimeout> | undefined
+const { start: clearRevealErrorLater } = useTimeoutFn(() => (revealError.value = null), 1800, { immediate: false })
 async function revealFile(path: string) {
   if (!shown.value || missing.value.has(path)) return
   await invoke('reveal_file', { id: shown.value.id, path }).catch((error) => {
     checkFiles()
     revealError.value = typeof error === 'string' ? error : 'Couldn’t open the folder'
-    clearTimeout(revealErrorTimer)
-    revealErrorTimer = setTimeout(() => (revealError.value = null), 1800)
+    clearRevealErrorLater()
   })
 }
-onBeforeUnmount(() => clearTimeout(revealErrorTimer))
 
 const fileCopy = ref<{ path: string, label: string, failed: boolean } | null>(null)
-let fileCopiedTimer: ReturnType<typeof setTimeout> | undefined
+const { start: clearFileStatusLater } = useTimeoutFn(() => (fileCopy.value = null), () => (fileCopy.value?.failed ? 1800 : 1200), { immediate: false })
 function showFileStatus(path: string, label: string, failed = false) {
   fileCopy.value = { path, label, failed }
-  clearTimeout(fileCopiedTimer)
-  fileCopiedTimer = setTimeout(() => (fileCopy.value = null), failed ? 1800 : 1200)
+  clearFileStatusLater()
 }
-onBeforeUnmount(() => clearTimeout(fileCopiedTimer))
 async function copyFile(path: string) {
   if (!shown.value) return
   await invoke('copy_file', { id: shown.value.id, path })
@@ -190,14 +183,16 @@ async function dragFile(event: DragEvent, path: string) {
 }
 
 const rendered = ref(false)
-let unmountTimer: ReturnType<typeof setTimeout> | undefined
+// In case the end of the animation isn't reported
+const { start: unmountLater, stop: keepMounted } = useTimeoutFn(() => (rendered.value = false), 500, { immediate: false })
 watch(open, (isOpen) => {
-  clearTimeout(unmountTimer)
-  if (isOpen) rendered.value = true
-  // In case the end of the animation isn't reported
-  else unmountTimer = setTimeout(() => (rendered.value = false), 500)
+  if (isOpen) {
+    keepMounted()
+    rendered.value = true
+  } else if (rendered.value) {
+    unmountLater()
+  }
 }, { immediate: true })
-onBeforeUnmount(() => clearTimeout(unmountTimer))
 const panelAnimation = computed(() =>
   open.value
     ? { x: 0, transition: { type: 'spring' as const, bounce: 0.15, visualDuration: 0.3 } }

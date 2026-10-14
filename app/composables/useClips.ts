@@ -40,10 +40,15 @@ export function useClips(
   const clips = computed(() => (shownCollection.value === null ? historyClips.value : openCollectionClips.value))
   const unlisteners: UnlistenFn[] = []
 
-  let searchTimer: ReturnType<typeof setTimeout> | undefined
   let searchId = 0
+  const searchDelay = shallowRef(SEARCH_DELAY_MS)
+  const { start: searchLater, stop: cancelSearch } = useTimeoutFn(async (current: string, favorites: boolean) => {
+    const id = ++searchId
+    const found = await invoke<Clip[]>('search_clips', { query: current, collection: toValue(collection), favorites })
+    if (id === searchId) results.value = found
+  }, searchDelay, { immediate: false })
   const search = (delay = SEARCH_DELAY_MS) => {
-    clearTimeout(searchTimer)
+    cancelSearch()
     const current = toValue(query).trim()
     const favorites = toValue(favoritesOnly)
     if (!current && !favorites) {
@@ -51,11 +56,8 @@ export function useClips(
       results.value = null
       return
     }
-    searchTimer = setTimeout(async () => {
-      const id = ++searchId
-      const found = await invoke<Clip[]>('search_clips', { query: current, collection: toValue(collection), favorites })
-      if (id === searchId) results.value = found
-    }, delay)
+    searchDelay.value = delay
+    searchLater(current, favorites)
   }
   watch(() => toValue(query), () => search())
   watch(() => toValue(favoritesOnly), () => search(0))
@@ -114,10 +116,7 @@ export function useClips(
     loadCollection()
   })
 
-  onBeforeUnmount(() => {
-    unlisteners.forEach(unlisten => unlisten())
-    clearTimeout(searchTimer)
-  })
+  onBeforeUnmount(() => unlisteners.forEach(unlisten => unlisten()))
 
   const without = (list: Clip[] | null, clip: Clip) => list && list.filter(c => c.id !== clip.id)
 

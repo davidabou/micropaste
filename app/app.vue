@@ -150,20 +150,11 @@ function onContextMenu(event: MouseEvent) {
   event.preventDefault()
 }
 
-onMounted(() => {
-  window.addEventListener('contextmenu', onContextMenu)
-  window.addEventListener('keydown', onKeydown)
-  window.addEventListener('dragover', onDragOver)
-  window.addEventListener('drop', onDrop)
-  window.addEventListener('dragleave', onDragLeave)
-})
-onBeforeUnmount(() => {
-  window.removeEventListener('contextmenu', onContextMenu)
-  window.removeEventListener('keydown', onKeydown)
-  window.removeEventListener('dragover', onDragOver)
-  window.removeEventListener('drop', onDrop)
-  window.removeEventListener('dragleave', onDragLeave)
-})
+useEventListener('contextmenu', onContextMenu)
+useEventListener('keydown', onKeydown)
+useEventListener('dragover', onDragOver)
+useEventListener('drop', onDrop)
+useEventListener('dragleave', onDragLeave)
 </script>
 
 <template>

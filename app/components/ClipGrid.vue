@@ -107,25 +107,14 @@ function confirmDelete(clip: Clip) {
   if (action === 'delete') emit('delete', clip)
   else if (action === 'remove' && props.collection !== null) emit('removeFrom', clip, props.collection)
 }
-const cancelOnEscape = (event: KeyboardEvent) => {
-  if (event.key !== 'Escape') return
+const asking = () => (pending.value ? window : null)
+onKeyStroke('Escape', (event) => {
   event.preventDefault()
   pending.value = null
-}
-const cancelOnOutsideClick = (event: PointerEvent) => {
+}, { target: asking })
+useEventListener(asking, 'pointerdown', (event: PointerEvent) => {
   if (!(event.target as Element | null)?.closest('[data-delete-confirm]')) pending.value = null
-}
-function stopListening() {
-  window.removeEventListener('keydown', cancelOnEscape)
-  window.removeEventListener('pointerdown', cancelOnOutsideClick, true)
-}
-watch(pending, (asking) => {
-  stopListening()
-  if (!asking) return
-  window.addEventListener('keydown', cancelOnEscape)
-  window.addEventListener('pointerdown', cancelOnOutsideClick, true)
-})
-onBeforeUnmount(stopListening)
+}, { capture: true })
 function onRemoveFrom(clip: Clip, collection: number) {
   if (collection === props.collection) pending.value = { clip: clip.id, action: 'remove' }
   else emit('removeFrom', clip, collection)

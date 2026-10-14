@@ -1,12 +1,2 @@
-const prefersDark = ref(false)
-let watching = false
-
-export function usePrefersDark() {
-  if (import.meta.client && !watching) {
-    watching = true
-    const query = window.matchMedia('(prefers-color-scheme: dark)')
-    prefersDark.value = query.matches
-    query.addEventListener('change', event => (prefersDark.value = event.matches))
-  }
-  return readonly(prefersDark)
-}
+// Shared: one media query listener for every tile
+export const usePrefersDark = createSharedComposable(usePreferredDark)
