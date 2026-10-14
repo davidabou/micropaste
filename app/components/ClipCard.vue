@@ -317,39 +317,39 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
               {{ clip.content }}
             </p>
           </div>
-        </div>
 
-        <footer
-          class="absolute inset-x-0 bottom-0 z-10 px-3 py-2"
-          :class="[
-            footerText ?? (hasCover && 'bg-linear-to-t from-white/90 via-white/60 to-transparent pt-8 dark:from-black/85 dark:via-black/50'),
-          ]"
-        >
-          <Tooltip v-if="title" :content="files?.map(fileName).join('\n') ?? title">
-            <p class="mb-1 truncate font-medium text-sm">
-              {{ title }}
-            </p>
-          </Tooltip>
-          <div class="flex items-center gap-1.5">
-            <Tooltip :content="clip.sourceAppName ?? 'Unknown app'">
-              <AppIcon :path="clip.sourceAppPath" />
+          <footer
+            class="absolute inset-x-0 bottom-0 z-10 px-3 py-2"
+            :class="[
+              footerText ?? (hasCover && 'bg-linear-to-t from-white/90 via-white/60 to-transparent pt-8 dark:from-black/85 dark:via-black/50'),
+            ]"
+          >
+            <Tooltip v-if="title" :content="files?.map(fileName).join('\n') ?? title">
+              <p class="mb-1 truncate font-medium text-sm">
+                {{ title }}
+              </p>
             </Tooltip>
-            <Tooltip :content="copiedAt">
-              <time class="truncate" :class="hasCover ? 'opacity-80' : 'opacity-60'">{{ timeAgo }}</time>
-            </Tooltip>
-            <Tooltip v-if="clip.byteSize" :content="clip.width && clip.height ? `${clip.width} × ${clip.height}` : null">
-              <span class="ml-auto shrink-0 opacity-70">
-                {{ formatBytes(clip.byteSize) }}
-              </span>
-            </Tooltip>
-            <span v-else-if="color" class="ml-auto shrink-0 opacity-70">{{ color.format }}</span>
-            <span v-else-if="svgSrc" class="ml-auto shrink-0 opacity-60">SVG</span>
-            <span v-else-if="files" class="ml-auto shrink-0 opacity-60">{{ files.length > 1 ? `${files.length} items` : 'Folder' }}</span>
-            <Tooltip v-else-if="link" :content="link">
-              <span class="ml-auto truncate opacity-70">{{ linkDomain(link) }}</span>
-            </Tooltip>
-          </div>
-        </footer>
+            <div class="flex items-center gap-1.5">
+              <Tooltip :content="clip.sourceAppName ?? 'Unknown app'">
+                <AppIcon :path="clip.sourceAppPath" />
+              </Tooltip>
+              <Tooltip :content="copiedAt">
+                <time class="truncate" :class="hasCover ? 'opacity-80' : 'opacity-60'">{{ timeAgo }}</time>
+              </Tooltip>
+              <Tooltip v-if="clip.byteSize" :content="clip.width && clip.height ? `${clip.width} × ${clip.height}` : null">
+                <span class="ml-auto shrink-0 opacity-70">
+                  {{ formatBytes(clip.byteSize) }}
+                </span>
+              </Tooltip>
+              <span v-else-if="color" class="ml-auto shrink-0 opacity-70">{{ color.format }}</span>
+              <span v-else-if="svgSrc" class="ml-auto shrink-0 opacity-60">SVG</span>
+              <span v-else-if="files" class="ml-auto shrink-0 opacity-60">{{ files.length > 1 ? `${files.length} items` : 'Folder' }}</span>
+              <Tooltip v-else-if="link" :content="link">
+                <span class="ml-auto truncate opacity-70">{{ linkDomain(link) }}</span>
+              </Tooltip>
+            </div>
+          </footer>
+        </div>
       </template>
 
       <AnimatePresence>
