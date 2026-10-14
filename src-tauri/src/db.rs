@@ -25,133 +25,78 @@ pub struct Clip {
 }
 
 pub fn open(path: &Path) -> rusqlite::Result<Connection> {
-    let conn = Connection::open(path)?;
+    let mut conn = Connection::open(path)?;
     conn.execute_batch(
         "PRAGMA journal_mode = WAL;
          -- Off by default in SQLite: deleting a clip or a collection cleans up `collection_clips`
-         PRAGMA foreign_keys = ON;
-         CREATE TABLE IF NOT EXISTS clips (
-             id INTEGER PRIMARY KEY,
-             kind TEXT NOT NULL,
-             content TEXT NOT NULL,
-             created_at INTEGER NOT NULL,
-             UNIQUE (kind, content)
-         );
-         CREATE INDEX IF NOT EXISTS clips_created_at ON clips (created_at DESC);",
+         PRAGMA foreign_keys = ON;",
     )?;
-    migrate(&conn)?;
+    migrate(&mut conn)?;
     Ok(conn)
 }
 
-fn migrate(conn: &Connection) -> rusqlite::Result<()> {
-    let version: i32 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
-    if version < 1 {
-        conn.execute_batch(
-            "ALTER TABLE clips ADD COLUMN source_app_name TEXT;
-             ALTER TABLE clips ADD COLUMN source_app_path TEXT;
-             PRAGMA user_version = 1;",
-        )?;
-    }
-    if version < 2 {
-        conn.execute_batch(
-            "CREATE TABLE app_icons (
-                 path TEXT PRIMARY KEY,
-                 png BLOB NOT NULL
-             );
-             PRAGMA user_version = 2;",
-        )?;
-    }
-    if version < 3 {
-        // App names saved before the fix could contain garbage after a NUL character
-        conn.execute_batch(
-            "UPDATE clips
-             SET source_app_name = substr(source_app_name, 1, instr(source_app_name, char(0)) - 1)
-             WHERE instr(source_app_name, char(0)) > 0;
-             PRAGMA user_version = 3;",
-        )?;
-    }
-    if version < 4 {
-        conn.execute_batch(
-            "ALTER TABLE clips ADD COLUMN width INTEGER;
-             ALTER TABLE clips ADD COLUMN height INTEGER;
-             PRAGMA user_version = 4;",
-        )?;
-    }
-    if version < 5 {
-        conn.execute_batch(
-            "CREATE TABLE link_previews (
-                 url TEXT PRIMARY KEY,
-                 title TEXT,
-                 description TEXT,
-                 site_name TEXT,
-                 image TEXT,
-                 fetched_at INTEGER NOT NULL
-             );
-             PRAGMA user_version = 5;",
-        )?;
-    }
-    if version < 6 {
-        conn.execute_batch(
-            "ALTER TABLE clips ADD COLUMN byte_size INTEGER;
-             PRAGMA user_version = 6;",
-        )?;
-    }
-    if version < 7 {
-        conn.execute_batch(
-            "CREATE TABLE collections (
-                 id INTEGER PRIMARY KEY,
-                 name TEXT NOT NULL,
-                 created_at INTEGER NOT NULL
-             );
-             CREATE TABLE collection_clips (
-                 collection_id INTEGER NOT NULL REFERENCES collections (id) ON DELETE CASCADE,
-                 clip_id INTEGER NOT NULL REFERENCES clips (id) ON DELETE CASCADE,
-                 added_at INTEGER NOT NULL,
-                 PRIMARY KEY (collection_id, clip_id)
-             );
-             PRAGMA user_version = 7;",
-        )?;
-    }
-    if version < 8 {
-        conn.execute_batch(
-            "ALTER TABLE clips ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0;
-             PRAGMA user_version = 8;",
-        )?;
-    }
-    if version < 9 {
-        conn.execute_batch(
-            "ALTER TABLE collections ADD COLUMN position INTEGER NOT NULL DEFAULT 0;
-             UPDATE collections SET position = id;
-             PRAGMA user_version = 9;",
-        )?;
-    }
-    if version < 10 {
-        conn.execute_batch(
-            "ALTER TABLE collection_clips ADD COLUMN position INTEGER NOT NULL DEFAULT 0;
-             UPDATE collection_clips SET position = -added_at;
-             PRAGMA user_version = 10;",
-        )?;
-    }
-    if version < 11 {
-        conn.execute_batch(
-            "UPDATE clips SET source_app_name = 'Micropaste' WHERE source_app_name = 'micropaste';
-             PRAGMA user_version = 11;",
-        )?;
-    }
-    if version < 12 {
-        conn.execute_batch(
-            "ALTER TABLE clips ADD COLUMN in_history INTEGER NOT NULL DEFAULT 1;
-             PRAGMA user_version = 12;",
-        )?;
-    }
-    if version < 13 {
-        conn.execute_batch(
-            "CREATE TABLE settings (
-                 key TEXT PRIMARY KEY,
-                 value TEXT NOT NULL
-             );
-             PRAGMA user_version = 13;",
-        )?;
+/// Append only: `user_version` is the number of migrations applied.
+const MIGRATIONS: &[&str] = &[
+    "CREATE TABLE IF NOT EXISTS clips (
+         id INTEGER PRIMARY KEY,
+         kind TEXT NOT NULL,
+         content TEXT NOT NULL,
+         created_at INTEGER NOT NULL,
+         UNIQUE (kind, content)
+     );
+     CREATE INDEX IF NOT EXISTS clips_created_at ON clips (created_at DESC);
+     ALTER TABLE clips ADD COLUMN source_app_name TEXT;
+     ALTER TABLE clips ADD COLUMN source_app_path TEXT;",
+    "CREATE TABLE app_icons (
+         path TEXT PRIMARY KEY,
+         png BLOB NOT NULL
+     );",
+    // App names saved before the fix could contain garbage after a NUL character
+    "UPDATE clips
+     SET source_app_name = substr(source_app_name, 1, instr(source_app_name, char(0)) - 1)
+     WHERE instr(source_app_name, char(0)) > 0;",
+    "ALTER TABLE clips ADD COLUMN width INTEGER;
+     ALTER TABLE clips ADD COLUMN height INTEGER;",
+    "CREATE TABLE link_previews (
+         url TEXT PRIMARY KEY,
+         title TEXT,
+         description TEXT,
+         site_name TEXT,
+         image TEXT,
+         fetched_at INTEGER NOT NULL
+     );",
+    "ALTER TABLE clips ADD COLUMN byte_size INTEGER;",
+    "CREATE TABLE collections (
+         id INTEGER PRIMARY KEY,
+         name TEXT NOT NULL,
+         created_at INTEGER NOT NULL
+     );
+     CREATE TABLE collection_clips (
+         collection_id INTEGER NOT NULL REFERENCES collections (id) ON DELETE CASCADE,
+         clip_id INTEGER NOT NULL REFERENCES clips (id) ON DELETE CASCADE,
+         added_at INTEGER NOT NULL,
+         PRIMARY KEY (collection_id, clip_id)
+     );",
+    "ALTER TABLE clips ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0;",
+    "ALTER TABLE collections ADD COLUMN position INTEGER NOT NULL DEFAULT 0;
+     UPDATE collections SET position = id;",
+    "ALTER TABLE collection_clips ADD COLUMN position INTEGER NOT NULL DEFAULT 0;
+     UPDATE collection_clips SET position = -added_at;",
+    "UPDATE clips SET source_app_name = 'Micropaste' WHERE source_app_name = 'micropaste';",
+    "ALTER TABLE clips ADD COLUMN in_history INTEGER NOT NULL DEFAULT 1;",
+    "CREATE TABLE settings (
+         key TEXT PRIMARY KEY,
+         value TEXT NOT NULL
+     );",
+];
+
+fn migrate(conn: &mut Connection) -> rusqlite::Result<()> {
+    let version: u32 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
+    for (version, sql) in (1u32..).zip(MIGRATIONS).skip(version as usize) {
+        let tx = conn.transaction()?;
+        tx.execute_batch(sql)?;
+        tx.pragma_update(None, "user_version", version)?;
+        tx.commit()?;
     }
     Ok(())
 }

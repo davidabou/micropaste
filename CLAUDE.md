@@ -36,7 +36,7 @@ Local-first, fast, with a premium, native Windows 11 design (inspired by Supaste
 | `lib.rs` | Setup, Tauri commands |
 | `clipboard.rs` | Clipboard watching, saving copies |
 | `copy.rs` | Copying a clip back, or a single file of a group; `is_own_copy` ignores copies made from the window; `clip_file` only accepts paths of the clip |
-| `db.rs` | SQLite, migrations via `user_version` (bump it for any schema change) |
+| `db.rs` | SQLite; for any schema change, append a migration to the end of `MIGRATIONS` (never edit or reorder existing ones: `user_version` is how many have run) |
 | `history.rs` | Cleanup: unused for the retention set in the settings (30 days by default), except favorites and clips in collections; at startup then hourly, emits `clips-removed` |
 | `images.rs` | Images stored as PNG by hash in `$APPDATA/images` |
 | `drag_out.rs` | Native drag of images and files to other apps |
