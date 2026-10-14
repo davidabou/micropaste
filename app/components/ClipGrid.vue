@@ -68,7 +68,7 @@ watch(() => props.layout, async () => {
   grid?.scrollTo({ top: 0 })
   renderedCount.value = pageSize()
   await nextTick()
-  if (grid) animate(grid, { opacity: [0, 1], y: [12, 0] }, { type: 'spring', bounce: 0, visualDuration: 0.25 })
+  if (grid && !props.loading) animate(grid, { opacity: [0, 1], y: [12, 0] }, { type: 'spring', bounce: 0, visualDuration: 0.25 })
   checkEnd()
 })
 

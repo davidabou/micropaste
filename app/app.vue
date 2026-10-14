@@ -5,7 +5,7 @@ import { animate } from 'motion-v'
 const search = ref('')
 const collection = ref<number | null>(null)
 const layout = ref<'grid' | 'list'>('grid')
-// The grids wait for it: switching layout right after mounting would show the wrong one first
+// The clips wait for it, the history skeletons don't: they are in the prerendered page
 const layoutLoaded = ref(false)
 onMounted(async () => {
   const settings = await invoke<{ layout: 'grid' | 'list' | null }>('get_settings').catch(() => null)
@@ -194,15 +194,14 @@ useEventListener('dragleave', onDragLeave)
 
       <div class="relative flex min-h-0 flex-1 overflow-hidden">
         <ClipGrid
-          v-if="layoutLoaded"
           :initial="false"
           :animate="historyAnimation"
           :inert="!isHistoryShown"
           :transition="swipeTransition"
-          :clips="historyClips"
+          :clips="layoutLoaded ? historyClips : []"
           :collection="null"
           :layout="layout"
-          :loading="historyLoading"
+          :loading="historyLoading || !layoutLoaded"
           @info="detailsClip = $event"
           @copy="copy"
           @favorite="toggleFavorite"
