@@ -5,10 +5,18 @@ import { animate } from 'motion-v'
 const search = ref('')
 const collection = ref<number | null>(null)
 const layout = ref<'grid' | 'list'>('grid')
-onMounted(() => {
-  if (localStorage.getItem('micropaste:layout') === 'list') layout.value = 'list'
+// The grids wait for it: switching layout right after mounting would show the wrong one first
+const layoutLoaded = ref(false)
+onMounted(async () => {
+  const settings = await invoke<{ layout: 'grid' | 'list' | null }>('get_settings').catch(() => null)
+  // The layout used to be kept by the webview
+  const legacy = localStorage.getItem('micropaste:layout')
+  localStorage.removeItem('micropaste:layout')
+  layout.value = settings?.layout ?? (legacy === 'list' ? 'list' : 'grid')
+  if (settings && !settings.layout && legacy) invoke('set_layout', { layout: layout.value })
+  layoutLoaded.value = true
+  watch(layout, value => invoke('set_layout', { layout: value }))
 })
-watch(layout, value => localStorage.setItem('micropaste:layout', value))
 
 const favoritesOnly = ref(false)
 const {
@@ -195,6 +203,7 @@ onBeforeUnmount(() => {
 
       <div class="relative flex min-h-0 flex-1 overflow-hidden">
         <ClipGrid
+          v-if="layoutLoaded"
           :initial="false"
           :animate="historyAnimation"
           :inert="!isHistoryShown"
@@ -217,7 +226,7 @@ onBeforeUnmount(() => {
         <Transition :css="false" @enter="swipeIn" @leave="swipeOut">
           <!-- Motion stops the animations of its own element when it unmounts: the swipe moves this wrapper -->
           <div
-            v-if="shownCollection !== null"
+            v-if="layoutLoaded && shownCollection !== null"
             :key="shownCollection"
             class="absolute inset-0 transition-[filter] duration-200"
             :class="externalDrop && 'blur-sm [clip-path:inset(0.5rem_round_0.5rem)]'"

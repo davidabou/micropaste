@@ -11,6 +11,8 @@ use crate::db::{self, Db};
 
 const SHORTCUT_KEY: &str = "shortcut";
 const RETENTION_KEY: &str = "retention_days";
+const LAYOUT_KEY: &str = "layout";
+const LAYOUTS: [&str; 2] = ["grid", "list"];
 const DEFAULT_SHORTCUT: &str = "Alt+Shift+V";
 const DEFAULT_RETENTION_DAYS: u32 = 30;
 const KEEP_FOREVER: &str = "forever";
@@ -24,6 +26,8 @@ pub struct Settings {
     shortcut: String,
     retention_days: Option<u32>,
     launch_at_startup: bool,
+    /// `None` until chosen once.
+    layout: Option<String>,
 }
 
 pub fn get(app: &AppHandle) -> Settings {
@@ -31,6 +35,7 @@ pub fn get(app: &AppHandle) -> Settings {
         shortcut: shortcut(app),
         retention_days: retention_days(app),
         launch_at_startup: app.autolaunch().is_enabled().unwrap_or(false),
+        layout: read(app, LAYOUT_KEY).filter(|layout| LAYOUTS.contains(&layout.as_str())),
     }
 }
 
@@ -81,6 +86,13 @@ pub fn set_shortcut(app: &AppHandle, shortcut: &str) -> Result<(), String> {
 pub fn set_retention_days(app: &AppHandle, days: Option<u32>) -> Result<(), String> {
     let value = days.map_or_else(|| KEEP_FOREVER.to_string(), |days| days.to_string());
     write(app, RETENTION_KEY, &value)
+}
+
+pub fn set_layout(app: &AppHandle, layout: &str) -> Result<(), String> {
+    if !LAYOUTS.contains(&layout) {
+        return Err("Unknown layout".into());
+    }
+    write(app, LAYOUT_KEY, layout)
 }
 
 pub fn set_launch_at_startup(app: &AppHandle, enabled: bool) -> Result<bool, String> {

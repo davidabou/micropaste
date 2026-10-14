@@ -313,6 +313,11 @@ fn set_launch_at_startup(app: tauri::AppHandle, enabled: bool) -> Result<bool, S
 }
 
 #[tauri::command]
+fn set_layout(app: tauri::AppHandle, layout: String) -> Result<(), String> {
+    settings::set_layout(&app, &layout)
+}
+
+#[tauri::command]
 fn hide_window(app: tauri::AppHandle) {
     background::hide_window(&app);
 }
@@ -399,6 +404,7 @@ pub fn run() {
             set_retention_days,
             count_expiring_clips,
             set_launch_at_startup,
+            set_layout,
             hide_window
         ])
         .run(tauri::generate_context!())

@@ -43,7 +43,7 @@ Local-first, fast, with a premium, native Windows 11 design (inspired by Supaste
 | `drop.rs` | External drop into a collection (files via WebView2 `postMessageWithAdditionalObjects`, text, images) |
 | `source_app.rs` | Source app (foreground app) |
 | `link_preview.rs` | Link previews |
-| `settings.rs` | Settings stored in the `settings` table: global shortcut, history retention, launch at startup |
+| `settings.rs` | Settings stored in the `settings` table: global shortcut, history retention, launch at startup, grid/list layout |
 | `background.rs` | Tray icon, close = hide, autostart, single-instance, `--hidden`, global shortcut (Alt+Shift+V by default), window placed in the bottom right corner at launch |
 | `window_icon.rs` | Sharp window icon at the right DPI |
 | `app_icon.rs` | Source app icons, file thumbnails and file type names as the Explorer shows them |
