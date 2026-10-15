@@ -218,7 +218,7 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
       >
         <div class="relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-md bg-black/[3.73%] dark:bg-white/[6.05%]">
           <ClipImage v-if="coverImage" :file="coverImage" class="size-full object-cover" />
-          <img v-else-if="fileThumbnail" :src="fileThumbnail" alt="" draggable="false" class="fade-in size-full object-cover">
+          <img v-else-if="fileThumbnail" :src="fileThumbnail" alt="" draggable="false" class="animate-fade-in size-full object-cover">
           <div
             v-else-if="color"
             class="size-full bg-[conic-gradient(#ccc_25%,#fff_0_50%,#ccc_0_75%,#fff_0)] bg-size-[8px_8px]"
@@ -227,8 +227,8 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
           </div>
           <img v-else-if="svgSrc" :src="svgSrc" alt="" draggable="false" class="size-6 object-contain">
           <Icon v-else-if="link" name="gravity-ui:globe" class="text-[20px] opacity-50" />
-          <img v-else-if="filePreview?.image" :src="filePreview.image" alt="" draggable="false" class="fade-in size-7 object-contain">
-          <Icon v-else-if="files && filePreview" name="gravity-ui:file-xmark" class="fade-in text-[20px] opacity-50" />
+          <img v-else-if="filePreview?.image" :src="filePreview.image" alt="" draggable="false" class="animate-fade-in size-7 object-contain">
+          <Icon v-else-if="files && filePreview" name="gravity-ui:file-xmark" class="animate-fade-in text-[20px] opacity-50" />
           <Icon v-else-if="files" name="gravity-ui:file" class="text-[20px] opacity-20" />
           <Icon v-else name="gravity-ui:text-align-left" class="text-[20px] opacity-50" />
         </div>
@@ -271,7 +271,7 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
             :src="fileThumbnail"
             alt=""
             draggable="false"
-            class="fade-in absolute inset-0 size-full object-cover"
+            class="animate-fade-in absolute inset-0 size-full object-cover"
           >
           <div
             v-else-if="color"
@@ -299,17 +299,17 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
                   :src="card.preview.image"
                   alt=""
                   draggable="false"
-                  class="fade-in size-full"
+                  class="animate-fade-in size-full"
                   :class="card.preview.thumbnail ? 'object-cover' : 'object-contain p-3'"
                 >
-                <Icon v-else-if="card.preview" name="gravity-ui:file-xmark" class="fade-in text-[32px] opacity-40" />
+                <Icon v-else-if="card.preview" name="gravity-ui:file-xmark" class="animate-fade-in text-[32px] opacity-40" />
                 <div v-else class="skeleton size-full" />
               </div>
             </div>
           </div>
           <div v-else-if="files" class="absolute inset-0 flex items-center justify-center pb-10">
-            <img v-if="filePreview?.image" :src="filePreview.image" alt="" draggable="false" class="fade-in size-16 object-contain">
-            <Icon v-else-if="filePreview" name="gravity-ui:file-xmark" class="fade-in text-[64px] opacity-40" />
+            <img v-if="filePreview?.image" :src="filePreview.image" alt="" draggable="false" class="animate-fade-in size-16 object-contain">
+            <Icon v-else-if="filePreview" name="gravity-ui:file-xmark" class="animate-fade-in text-[64px] opacity-40" />
             <Icon v-else name="gravity-ui:file" class="text-[64px] opacity-15" />
           </div>
           <div v-else class="min-h-0 flex-1">

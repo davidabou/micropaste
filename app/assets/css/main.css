@@ -4,6 +4,11 @@
     --font-ui: 'Outfit', 'Segoe UI', sans-serif;
     --font-sans: 'Outfit', 'Segoe UI', sans-serif;
     --font-icons: 'Segoe Fluent Icons', 'Segoe MDL2 Assets';
+    --animate-fade-in: fade-in 0.2s ease-out;
+
+    @keyframes fade-in {
+        from { opacity: 0; }
+    }
 }
 
 html, body {
@@ -42,12 +47,4 @@ html {
 @keyframes skeleton-sweep {
     from { background-position: 150% 0; }
     to { background-position: -50% 0; }
-}
-
-.fade-in {
-    animation: fade-in 0.2s ease-out;
-}
-
-@keyframes fade-in {
-    from { opacity: 0; }
 }
