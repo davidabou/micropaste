@@ -9,11 +9,7 @@ const layout = ref<'grid' | 'list'>('grid')
 const layoutLoaded = ref(false)
 onMounted(async () => {
   const settings = await invoke<{ layout: 'grid' | 'list' | null }>('get_settings').catch(() => null)
-  // The layout used to be kept by the webview
-  const legacy = localStorage.getItem('micropaste:layout')
-  localStorage.removeItem('micropaste:layout')
-  layout.value = settings?.layout ?? (legacy === 'list' ? 'list' : 'grid')
-  if (settings && !settings.layout && legacy) invoke('set_layout', { layout: layout.value })
+  layout.value = settings?.layout ?? 'grid'
   layoutLoaded.value = true
   watch(layout, value => invoke('set_layout', { layout: value }))
 })
