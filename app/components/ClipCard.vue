@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { invoke } from '@tauri-apps/api/core'
-import { copiedText, type Clip, type PartialCopy } from '~/composables/useClips'
+import { copiedText, type Clip, type PartialCopy } from '@/composables/useClips'
 
 const props = defineProps<{
   clip: Clip

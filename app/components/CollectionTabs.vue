@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { animate } from 'motion-v'
-import type { Collection } from '~/composables/useCollections'
+import type { Collection } from '@/composables/useCollections'
 
 const selected = defineModel<number | null>({ default: null })
 

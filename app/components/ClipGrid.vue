@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { animate } from 'motion-v'
-import type { Clip, PartialCopy } from '~/composables/useClips'
+import type { Clip, PartialCopy } from '@/composables/useClips'
 
 const props = defineProps<{
   clips: Clip[]
