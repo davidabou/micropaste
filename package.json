@@ -8,8 +8,11 @@
     "dev": "nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "postinstall": "nuxt prepare",
+    "postinstall": "nuxt prepare && simple-git-hooks",
     "typecheck": "nuxt typecheck",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "vitest run",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
@@ -31,12 +34,31 @@
     "vue-router": "^5.3.1"
   },
   "devDependencies": {
+    "@antfu/eslint-config": "^9.5.1",
+    "@commitlint/cli": "^21.2.3",
+    "@commitlint/config-conventional": "^21.2.3",
     "@iconify-json/gravity-ui": "^1.2.14",
+    "@nuxt/eslint": "^1.17.0",
     "@tauri-apps/cli": "^2",
     "@types/node": "^26.6.5",
     "bumpp": "^12.3.0",
     "changelogithub": "^15.0.5",
+    "eslint": "^10.12.0",
+    "happy-dom": "^21.0.1",
+    "nano-staged": "^1.0.2",
+    "simple-git-hooks": "^2.14.0",
     "typescript": "^6.0.3",
+    "vitest": "^5.0.4",
     "vue-tsc": "^3.3.13"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "bunx nano-staged",
+    "commit-msg": "bunx commitlint --edit $1"
+  },
+  "nano-staged": {
+    "*.{ts,vue,js,mjs,json,md,yml,yaml}": "eslint --fix"
+  },
+  "commitlint": {
+    "extends": ["@commitlint/config-conventional"]
   }
 }
