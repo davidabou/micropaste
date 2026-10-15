@@ -14,6 +14,14 @@ export interface Clip {
   favorite: boolean
 }
 
+export interface PartialCopy {
+  copied: number
+  total: number
+}
+
+export const copiedText = (partial: PartialCopy | null) =>
+  partial ? `Copied (${partial.copied}/${partial.total})` : 'Copied'
+
 const SEARCH_DELAY_MS = 120
 
 export function useClips(
@@ -120,7 +128,7 @@ export function useClips(
 
   const without = (list: Clip[] | null, clip: Clip) => list && list.filter(c => c.id !== clip.id)
 
-  const copy = (clip: Clip) => invoke('copy_clip', { id: clip.id })
+  const copy = (clip: Clip) => invoke<PartialCopy | null>('copy_clip', { id: clip.id })
 
   const remove = async (clip: Clip) => {
     await invoke('delete_clip', { id: clip.id })

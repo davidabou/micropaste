@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { invoke } from '@tauri-apps/api/core'
 import { animate } from 'motion-v'
-import type { Clip } from '~/composables/useClips'
+import { copiedText, type Clip, type PartialCopy } from '~/composables/useClips'
 
 const props = defineProps<{
   clip: Clip | null
-  onCopy: (clip: Clip) => Promise<unknown>
+  onCopy: (clip: Clip) => Promise<PartialCopy | null>
 }>()
 
 const emit = defineEmits<{
@@ -127,9 +127,9 @@ const { start: clearCopyLabelLater } = useTimeoutFn(() => (copyLabel.value = nul
 async function copy() {
   if (!shown.value) return
   try {
-    await props.onCopy(shown.value)
+    const partial = await props.onCopy(shown.value)
     copyFailed.value = false
-    copyLabel.value = 'Copied'
+    copyLabel.value = copiedText(partial)
   } catch (error) {
     copyFailed.value = true
     copyLabel.value = typeof error === 'string' ? error : 'Couldn’t copy'

@@ -24,32 +24,44 @@ pub fn files_not_found(paths: &str) -> String {
     if paths.lines().count() > 1 { "Files not found" } else { "File not found" }.into()
 }
 
-pub fn copy(app: &AppHandle, id: i64) -> Result<(), String> {
+#[derive(serde::Serialize)]
+pub struct PartialCopy {
+    copied: usize,
+    total: usize,
+}
+
+pub fn copy(app: &AppHandle, id: i64) -> Result<Option<PartialCopy>, String> {
     let db = app.state::<Db>();
     let clip = db::get(&db.0.lock().unwrap(), id).map_err(|e| e.to_string())?;
 
     let mut clipboard = Clipboard::new().map_err(|e| e.to_string())?;
-    match clip.kind.as_str() {
+    let partial = match clip.kind.as_str() {
         "image" => {
             let dir = images::dir(app).map_err(|e| e.to_string())?;
             let (width, height, rgba) = images::load_rgba(&dir, &clip.content).map_err(|e| e.to_string())?;
             let image = ImageData { width: width as usize, height: height as usize, bytes: rgba.into() };
             clipboard.set_image(image).map_err(|e| e.to_string())?;
+            None
         }
         "files" => {
+            let total = clip.content.lines().count();
             let paths: Vec<&Path> = clip.content.lines().map(Path::new).filter(|path| path.exists()).collect();
             if paths.is_empty() {
                 return Err(crate::copy::files_not_found(&clip.content));
             }
             clipboard.set().file_list(&paths).map_err(|e| e.to_string())?;
+            (paths.len() < total).then_some(PartialCopy { copied: paths.len(), total })
         }
-        _ => clipboard.set_text(&clip.content).map_err(|e| e.to_string())?,
-    }
+        _ => {
+            clipboard.set_text(&clip.content).map_err(|e| e.to_string())?;
+            None
+        }
+    };
     COPIED_SEQUENCE.store(clipboard_sequence(), Ordering::SeqCst);
 
     let clip = db::touch(&db.0.lock().unwrap(), id, now_ms()).map_err(|e| e.to_string())?;
     let _ = app.emit(CLIP_ADDED_EVENT, clip);
-    Ok(())
+    Ok(partial)
 }
 
 /// One file of a files clip. Only paths of that clip are accepted, not arbitrary files.

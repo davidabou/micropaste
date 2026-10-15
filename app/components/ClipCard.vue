@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { invoke } from '@tauri-apps/api/core'
-import type { Clip } from '~/composables/useClips'
+import { copiedText, type Clip, type PartialCopy } from '~/composables/useClips'
 
 const props = defineProps<{
   clip: Clip
-  onCopy?: () => Promise<unknown>
+  onCopy?: () => Promise<PartialCopy | null>
   inCollection?: boolean
   confirm?: 'delete' | 'remove' | null
   layout?: 'grid' | 'list'
@@ -51,8 +51,7 @@ const errorText = (error: unknown) => (typeof error === 'string' ? error : 'Coul
 async function copy() {
   copying.value = true
   try {
-    await props.onCopy?.()
-    showNotice('Copied')
+    showNotice(copiedText(await props.onCopy?.() ?? null))
   } catch (error) {
     showNotice(errorText(error), true)
   } finally {

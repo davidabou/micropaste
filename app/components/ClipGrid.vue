@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { animate } from 'motion-v'
-import type { Clip } from '~/composables/useClips'
+import type { Clip, PartialCopy } from '~/composables/useClips'
 
 const props = defineProps<{
   clips: Clip[]
   collection: number | null
-  onCopy: (clip: Clip) => Promise<unknown>
+  onCopy: (clip: Clip) => Promise<PartialCopy | null>
   reorderable?: boolean
   layout?: 'grid' | 'list'
   loading?: boolean

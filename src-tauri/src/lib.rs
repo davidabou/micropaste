@@ -130,7 +130,7 @@ async fn get_app_icon(db: tauri::State<'_, Db>, path: String) -> Result<Option<S
 }
 
 #[tauri::command]
-async fn copy_clip(app: tauri::AppHandle, id: i64) -> Result<(), String> {
+async fn copy_clip(app: tauri::AppHandle, id: i64) -> Result<Option<copy::PartialCopy>, String> {
     copy::copy(&app, id)
 }
 
