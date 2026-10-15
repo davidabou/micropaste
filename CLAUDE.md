@@ -9,12 +9,13 @@ Local-first, fast, with a premium, native Windows 11 design (inspired by Supaste
 
 - The app UI is in **English**.
 - **Do not launch the app** (`bun run tauri dev`), nor screenshot or monitor it: the user tests it themself. Stick to static checks:
-  - `bun run typecheck`;
-  - in `src-tauri/`: `cargo fmt` and `cargo clippy --all-targets -- -D warnings`.
+  - `bun run lint` (`lint:fix` to fix), `bun run typecheck` and `bun run test` (Vitest, `test/`);
+  - in `src-tauri/`: `cargo fmt`, `cargo clippy --all-targets -- -D warnings` and `cargo test` (unit tests at the bottom of each file, the database ones on SQLite in memory).
 - Package manager: **Bun** only (no pnpm or npm).
 - The user often edits files themself: re-read before editing, and keep their changes.
 - Look at the code directly instead of guessing.
-- CI (`.github/workflows/ci.yml`) fails on type errors, unformatted Rust or any clippy warning.
+- CI (`.github/workflows/ci.yml`) fails on any lint, type, test, rustfmt or clippy error, on a `cargo deny` issue (advisories, licenses: `src-tauri/deny.toml`). `release.yml` runs the CI before building.
+- Git hooks (simple-git-hooks): ESLint on staged files (nano-staged), and conventional commit messages (commitlint), which the release notes rely on.
 
 ## Stack
 

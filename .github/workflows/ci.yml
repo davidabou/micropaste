@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Run first by the release workflow
+  workflow_call:
 
 # A new push cancels the checks still running on the same branch
 concurrency:
@@ -25,8 +27,14 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Lint
+        run: bun run lint
+
       - name: Type check
         run: bun run typecheck
+
+      - name: Test
+        run: bun run test
 
       - name: Build
         run: bun run generate
@@ -58,3 +66,17 @@ jobs:
 
       - name: Clippy
         run: cargo clippy --all-targets --locked -- -D warnings
+
+      - name: Test
+        run: cargo test --locked
+
+  audit:
+    name: Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Security advisories, licenses and sources of the Rust dependencies (src-tauri/deny.toml)
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          manifest-path: src-tauri/Cargo.toml
