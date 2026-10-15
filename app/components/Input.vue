@@ -32,7 +32,7 @@ const inputAttrs = computed(() => {
       ref="input"
       v-model="model"
       v-bind="inputAttrs"
-      class="h-full min-w-0 flex-1 bg-transparent p-0 font-ui text-sm outline-none placeholder:text-current placeholder:opacity-50"
+      class="h-full min-w-0 flex-1 bg-transparent p-0 text-sm outline-none placeholder:text-current placeholder:opacity-50"
       :type="type"
       :placeholder="placeholder"
     >

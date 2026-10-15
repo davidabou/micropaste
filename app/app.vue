@@ -252,7 +252,7 @@ useEventListener('dragleave', onDragLeave)
             :exit="{ opacity: 0, scale: 0.98 }"
             :transition="{ type: 'spring', bounce: 0, visualDuration: 0.15 }"
           >
-            <p class="flex items-center gap-2 font-ui text-sm font-medium">
+            <p class="flex items-center gap-2 text-sm font-medium">
               <Icon name="gravity-ui:folder-plus" class="text-base" />
               Drop to add to “{{ shownCollectionName }}”
             </p>

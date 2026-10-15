@@ -46,7 +46,7 @@ const pop = computed(() => ({
             :animate="pop.animate"
             :exit="pop.exit"
             :class="path ? 'max-w-[min(36rem,calc(100vw-1rem))] [line-break:anywhere]' : 'max-w-80'"
-            class="z-50 origin-(--reka-tooltip-content-transform-origin) rounded-md border border-black/[5.78%] bg-[#f9f9f9] px-2 py-1 font-ui text-xs whitespace-pre-line wrap-anywhere shadow-md select-none dark:border-black/20 dark:bg-[#2c2c2c]"
+            class="z-50 origin-(--reka-tooltip-content-transform-origin) rounded-md border border-black/[5.78%] bg-[#f9f9f9] px-2 py-1 text-xs whitespace-pre-line wrap-anywhere shadow-md select-none dark:border-black/20 dark:bg-[#2c2c2c]"
           >
             {{ content }}
           </Motion>

@@ -1,7 +1,6 @@
 @import "tailwindcss";
 
 @theme {
-    --font-ui: 'Outfit', 'Segoe UI', sans-serif;
     --font-sans: 'Outfit', 'Segoe UI', sans-serif;
     --font-icons: 'Segoe Fluent Icons', 'Segoe MDL2 Assets';
     --animate-fade-in: fade-in 0.2s ease-out;

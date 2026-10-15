@@ -147,7 +147,7 @@ async function measureName() {
 onMounted(measureName)
 watch(draft, measureName, { flush: 'post' })
 const morphWidth = computed(() => ({ width: creating.value ? nameWidth.value : 32 }))
-const newNameText = 'h-8 shrink-0 bg-transparent px-3 font-ui text-sm font-medium outline-none placeholder:text-current placeholder:opacity-50'
+const newNameText = 'h-8 shrink-0 bg-transparent px-3 text-sm font-medium outline-none placeholder:text-current placeholder:opacity-50'
 
 const tabPop = {
   initial: { opacity: 0, scale: 0.6 },
@@ -304,7 +304,7 @@ const tabSlide = { type: 'spring', bounce: 0.2, duration: 0.4 } as const
             <span
               ref="nameMirror"
               aria-hidden="true"
-              class="pointer-events-none invisible absolute left-0 w-max px-3 font-ui text-sm font-medium whitespace-pre"
+              class="pointer-events-none invisible absolute left-0 w-max px-3 text-sm font-medium whitespace-pre"
             >{{ draft || NAME_PLACEHOLDER }}</span>
             <AnimatePresence mode="popLayout" :initial="false">
               <Motion

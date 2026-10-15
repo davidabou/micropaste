@@ -1,4 +1,4 @@
-export const menuContent = 'z-50 min-w-44 origin-(--reka-context-menu-content-transform-origin) rounded-lg border border-black/[5.78%] bg-[#f9f9f9] p-1 font-ui text-xs shadow-lg select-none dark:border-black/20 dark:bg-[#2c2c2c]'
+export const menuContent = 'z-50 min-w-44 origin-(--reka-context-menu-content-transform-origin) rounded-lg border border-black/[5.78%] bg-[#f9f9f9] p-1 text-xs shadow-lg select-none dark:border-black/20 dark:bg-[#2c2c2c]'
 
 export const menuIcon = 'shrink-0 text-sm opacity-70'
 

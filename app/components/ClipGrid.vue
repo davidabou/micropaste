@@ -125,7 +125,7 @@ function onRemoveFrom(clip: Clip, collection: number) {
   <Motion
     layout-scroll
     data-clip-scroller
-    class="absolute inset-0 grid auto-rows-min overflow-y-auto p-2 font-ui text-xs"
+    class="absolute inset-0 grid auto-rows-min overflow-y-auto p-2 text-xs"
     :class="layout === 'list' ? 'grid-cols-1 gap-1' : 'grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2'"
   >
     <LayoutGroup :key="layout">

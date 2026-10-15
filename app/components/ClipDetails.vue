@@ -225,7 +225,7 @@ const carouselButton = 'absolute top-1/2 flex size-7 -translate-y-1/2 cursor-poi
           @animation-complete="onPanelAnimated"
           @keydown.left="go(-1)"
           @keydown.right="go(1)"
-          class="fixed inset-y-2 right-2 z-50 flex w-96 flex-col overflow-hidden rounded-lg border border-black/[5.78%] bg-[#f9f9f9] font-ui text-sm shadow-2xl dark:border-black/20 dark:bg-[#2c2c2c]"
+          class="fixed inset-y-2 right-2 z-50 flex w-96 flex-col overflow-hidden rounded-lg border border-black/[5.78%] bg-[#f9f9f9] text-sm shadow-2xl dark:border-black/20 dark:bg-[#2c2c2c]"
         >
           <header class="flex items-center gap-2 px-4 pt-4 pb-3">
             <DialogTitle class="min-w-0 flex-1 truncate text-base font-medium">

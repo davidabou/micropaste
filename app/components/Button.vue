@@ -29,7 +29,7 @@ const sizes = {
 const classes = computed(() => {
   const size = sizes[props.size]
   return [
-    'inline-flex shrink-0 items-center justify-center rounded-md font-ui text-xs font-medium transition-colors duration-100',
+    'inline-flex shrink-0 items-center justify-center rounded-md text-xs font-medium transition-colors duration-100',
     'focus-visible:outline-2 focus-visible:outline-current disabled:pointer-events-none disabled:opacity-40',
     variants[props.variant],
     size.base,

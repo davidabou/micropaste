@@ -194,7 +194,7 @@ const thumbSpring = { type: 'spring', bounce: 0.15, duration: 0.3 } as const
         <Motion
           :initial="{ x: '105%' }"
           :animate="panelAnimation"
-          class="fixed inset-y-2 right-2 z-50 flex w-96 flex-col overflow-hidden rounded-lg border border-black/[5.78%] bg-[#f9f9f9] font-ui text-sm shadow-2xl dark:border-black/20 dark:bg-[#2c2c2c]"
+          class="fixed inset-y-2 right-2 z-50 flex w-96 flex-col overflow-hidden rounded-lg border border-black/[5.78%] bg-[#f9f9f9] text-sm shadow-2xl dark:border-black/20 dark:bg-[#2c2c2c]"
           @animation-complete="onPanelAnimated"
         >
           <header class="flex items-center gap-2 px-4 pt-4 pb-3">
