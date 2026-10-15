@@ -463,3 +463,263 @@ fn to_clip(row: &Row) -> rusqlite::Result<Clip> {
         favorite: row.get(9)?,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn memory() -> Connection {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+        migrate(&mut conn).unwrap();
+        conn
+    }
+
+    fn text(conn: &Connection, content: &str, now: i64) -> Clip {
+        save(conn, NewClip::Text(content), None, now).unwrap()
+    }
+
+    fn ids(clips: &[Clip]) -> Vec<i64> {
+        clips.iter().map(|clip| clip.id).collect()
+    }
+
+    fn preview(url: &str, title: Option<&str>, image: Option<&str>) -> LinkPreview {
+        LinkPreview {
+            url: url.into(),
+            title: title.map(Into::into),
+            description: None,
+            site_name: None,
+            image: image.map(Into::into),
+            fetched_at: 0,
+            stale: false,
+        }
+    }
+
+    #[test]
+    fn migrations_run_once() {
+        let mut conn = memory();
+        let version: u32 = conn.pragma_query_value(None, "user_version", |row| row.get(0)).unwrap();
+        assert_eq!(version as usize, MIGRATIONS.len());
+
+        migrate(&mut conn).unwrap();
+        let again: u32 = conn.pragma_query_value(None, "user_version", |row| row.get(0)).unwrap();
+        assert_eq!(again, version);
+    }
+
+    #[test]
+    fn migrations_keep_existing_clips() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(MIGRATIONS[0]).unwrap();
+        conn.pragma_update(None, "user_version", 1).unwrap();
+        conn.execute(
+            "INSERT INTO clips (kind, content, created_at, source_app_name) VALUES ('text', 'hello', 1, 'micropaste')",
+            [],
+        )
+        .unwrap();
+
+        migrate(&mut conn).unwrap();
+        let clip = get(&conn, 1).unwrap();
+        assert_eq!(clip.content, "hello");
+        assert_eq!(clip.source_app_name.as_deref(), Some("Micropaste"));
+        assert_eq!(count(&conn).unwrap(), 1);
+    }
+
+    #[test]
+    fn copying_again_moves_the_clip_to_the_top() {
+        let conn = memory();
+        let first = text(&conn, "first", 1);
+        let second = text(&conn, "second", 2);
+        assert_eq!(ids(&list(&conn, 10, None, false).unwrap()), [second.id, first.id]);
+
+        let again = text(&conn, "first", 3);
+        assert_eq!(again.id, first.id);
+        assert_eq!(ids(&list(&conn, 10, None, false).unwrap()), [first.id, second.id]);
+    }
+
+    #[test]
+    fn dropped_clips_stay_out_of_the_history_until_copied() {
+        let conn = memory();
+        let dropped = save_dropped(&conn, NewClip::Text("dropped"), None, 1).unwrap();
+        assert!(list(&conn, 10, None, false).unwrap().is_empty());
+        assert_eq!(count(&conn).unwrap(), 0);
+
+        let copied = text(&conn, "dropped", 2);
+        assert_eq!(copied.id, dropped.id);
+        assert_eq!(ids(&list(&conn, 10, None, false).unwrap()), [dropped.id]);
+    }
+
+    #[test]
+    fn dropping_a_copied_clip_keeps_it_in_the_history() {
+        let conn = memory();
+        let copied = text(&conn, "copied", 1);
+        save_dropped(&conn, NewClip::Text("copied"), None, 2).unwrap();
+        assert_eq!(ids(&list(&conn, 10, None, false).unwrap()), [copied.id]);
+    }
+
+    #[test]
+    fn favorites_and_collections_never_expire() {
+        let conn = memory();
+        let old = text(&conn, "old", 1);
+        let favorite = text(&conn, "favorite", 1);
+        let collected = text(&conn, "collected", 1);
+        text(&conn, "recent", 100);
+        let dropped = save_dropped(&conn, NewClip::Text("dropped"), None, 100).unwrap();
+
+        set_favorite(&conn, favorite.id, true).unwrap();
+        let collection = create_collection(&conn, "Work", 1).unwrap();
+        add_to_collection(&conn, collection.id, collected.id, 1).unwrap();
+
+        let mut expired = expired(&conn, 50).unwrap();
+        expired.sort();
+        assert_eq!(expired, [old.id, dropped.id]);
+    }
+
+    #[test]
+    fn deleting_an_image_returns_its_file() {
+        let conn = memory();
+        let image = save(&conn, NewClip::Image { hash: "abc", width: 1, height: 1, byte_size: 4 }, None, 1).unwrap();
+        assert_eq!(delete(&conn, image.id).unwrap(), ["abc.png"]);
+        assert!(delete(&conn, image.id).unwrap().is_empty());
+    }
+
+    #[test]
+    fn deleting_the_last_link_removes_its_preview() {
+        let conn = memory();
+        let url = "https://example.com/";
+        save_link_preview(&conn, &preview(url, None, Some("preview.png")), 1).unwrap();
+        let link = text(&conn, url, 1);
+        let padded = text(&conn, &format!("  {url}\n"), 2);
+
+        assert!(delete(&conn, padded.id).unwrap().is_empty());
+        assert!(link_preview(&conn, url).unwrap().is_some());
+
+        assert_eq!(delete(&conn, link.id).unwrap(), ["preview.png"]);
+        assert!(link_preview(&conn, url).unwrap().is_none());
+    }
+
+    #[test]
+    fn deleting_a_clip_removes_it_from_collections() {
+        let conn = memory();
+        let clip = text(&conn, "clip", 1);
+        let collection = create_collection(&conn, "Work", 1).unwrap();
+        add_to_collection(&conn, collection.id, clip.id, 1).unwrap();
+
+        delete(&conn, clip.id).unwrap();
+        assert_eq!(collections(&conn).unwrap()[0].count, 0);
+    }
+
+    #[test]
+    fn collections_keep_their_order() {
+        let mut conn = memory();
+        let a = create_collection(&conn, "A", 1).unwrap();
+        let b = create_collection(&conn, "B", 2).unwrap();
+        let c = create_collection(&conn, "C", 3).unwrap();
+        let names = |conn: &Connection| collections(conn).unwrap().into_iter().map(|c| c.name).collect::<Vec<_>>();
+        assert_eq!(names(&conn), ["A", "B", "C"]);
+
+        reorder_collections(&mut conn, &[c.id, a.id, b.id]).unwrap();
+        assert_eq!(names(&conn), ["C", "A", "B"]);
+    }
+
+    #[test]
+    fn collection_clips_are_added_first_and_can_be_reordered() {
+        let mut conn = memory();
+        let collection = create_collection(&conn, "Work", 1).unwrap();
+        let first = text(&conn, "first", 1);
+        let second = text(&conn, "second", 2);
+        add_to_collection(&conn, collection.id, first.id, 1).unwrap();
+        add_to_collection(&conn, collection.id, second.id, 2).unwrap();
+        add_to_collection(&conn, collection.id, first.id, 3).unwrap();
+        assert_eq!(ids(&list(&conn, 10, Some(collection.id), false).unwrap()), [second.id, first.id]);
+
+        reorder_collection(&mut conn, collection.id, &[first.id, second.id]).unwrap();
+        assert_eq!(ids(&list(&conn, 10, Some(collection.id), false).unwrap()), [first.id, second.id]);
+
+        remove_from_collection(&conn, collection.id, first.id).unwrap();
+        assert_eq!(ids(&list(&conn, 10, Some(collection.id), false).unwrap()), [second.id]);
+        assert_eq!(clip_collections(&conn, second.id).unwrap(), [collection.id]);
+    }
+
+    #[test]
+    fn deleting_a_collection_keeps_its_clips() {
+        let conn = memory();
+        let clip = text(&conn, "clip", 1);
+        let collection = create_collection(&conn, "Work", 1).unwrap();
+        add_to_collection(&conn, collection.id, clip.id, 1).unwrap();
+
+        delete_collection(&conn, collection.id).unwrap();
+        assert!(collections(&conn).unwrap().is_empty());
+        assert!(get(&conn, clip.id).is_ok());
+    }
+
+    #[test]
+    fn search_matches_every_word() {
+        let conn = memory();
+        let both = text(&conn, "hello world", 1);
+        text(&conn, "hello", 2);
+        assert_eq!(ids(&search(&conn, "  world   hello ", 10, None, false).unwrap()), [both.id]);
+    }
+
+    #[test]
+    fn search_treats_wildcards_literally() {
+        let conn = memory();
+        let percent = text(&conn, "100% sure", 1);
+        text(&conn, "100 sure", 2);
+        let underscore = text(&conn, "snake_case", 3);
+        text(&conn, "snakeXcase", 4);
+        let backslash = text(&conn, "C:\\Users", 5);
+        assert_eq!(ids(&search(&conn, "100%", 10, None, false).unwrap()), [percent.id]);
+        assert_eq!(ids(&search(&conn, "e_c", 10, None, false).unwrap()), [underscore.id]);
+        assert_eq!(ids(&search(&conn, ":\\u", 10, None, false).unwrap()), [backslash.id]);
+    }
+
+    #[test]
+    fn search_finds_source_apps_and_link_titles_but_not_image_hashes() {
+        let conn = memory();
+        let source = SourceApp { name: "Notepad".into(), path: "C:\\notepad.exe".into() };
+        let from_notepad = save(&conn, NewClip::Text("note"), Some(&source), 1).unwrap();
+        save(&conn, NewClip::Image { hash: "deadbeef", width: 1, height: 1, byte_size: 4 }, None, 2).unwrap();
+        let link = text(&conn, "https://example.com/", 3);
+        save_link_preview(&conn, &preview("https://example.com/", Some("Example Domain"), None), 3).unwrap();
+
+        assert_eq!(ids(&search(&conn, "notepad", 10, None, false).unwrap()), [from_notepad.id]);
+        assert!(search(&conn, "deadbeef", 10, None, false).unwrap().is_empty());
+        assert_eq!(ids(&search(&conn, "domain", 10, None, false).unwrap()), [link.id]);
+    }
+
+    #[test]
+    fn search_and_list_respect_favorites_and_scope() {
+        let conn = memory();
+        let favorite = text(&conn, "apple pie", 1);
+        text(&conn, "apple juice", 2);
+        set_favorite(&conn, favorite.id, true).unwrap();
+        let dropped = save_dropped(&conn, NewClip::Text("apple tree"), None, 3).unwrap();
+        let collection = create_collection(&conn, "Fruits", 1).unwrap();
+        add_to_collection(&conn, collection.id, dropped.id, 1).unwrap();
+
+        assert_eq!(ids(&search(&conn, "apple", 10, None, true).unwrap()), [favorite.id]);
+        assert_eq!(ids(&list(&conn, 10, None, true).unwrap()), [favorite.id]);
+        assert_eq!(search(&conn, "apple", 10, None, false).unwrap().len(), 2);
+        assert_eq!(search(&conn, "apple", 1, None, false).unwrap().len(), 1);
+        assert_eq!(ids(&search(&conn, "apple", 10, Some(collection.id), false).unwrap()), [dropped.id]);
+    }
+
+    #[test]
+    fn files_are_matched_by_whole_line() {
+        let conn = memory();
+        save(&conn, NewClip::Files { paths: "C:\\a.txt\nC:\\b.txt", byte_size: None }, None, 1).unwrap();
+        assert!(is_copied_file(&conn, "C:\\a.txt").unwrap());
+        assert!(is_copied_file(&conn, "C:\\b.txt").unwrap());
+        assert!(!is_copied_file(&conn, "C:\\a.tx").unwrap());
+        assert!(!is_copied_file(&conn, "a.txt").unwrap());
+    }
+
+    #[test]
+    fn settings_are_replaced() {
+        let conn = memory();
+        assert_eq!(setting(&conn, "key").unwrap(), None);
+        set_setting(&conn, "key", "one").unwrap();
+        set_setting(&conn, "key", "two").unwrap();
+        assert_eq!(setting(&conn, "key").unwrap().as_deref(), Some("two"));
+    }
+}

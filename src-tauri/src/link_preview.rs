@@ -202,3 +202,84 @@ async fn read_limited(mut response: Response, limit: usize) -> reqwest::Result<V
     }
     Ok(body)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn accepts_public_web_links() {
+        for url in [
+            "https://example.com",
+            " http://www.example.co.uk/page?q=1 \n",
+            "https://93.184.216.34/",
+            "https://[2606:4700::1111]/",
+        ] {
+            assert!(parse_url(url).is_some(), "{url}");
+        }
+    }
+
+    #[test]
+    fn rejects_other_schemes_and_plain_text() {
+        for text in ["ftp://example.com", "file:///C:/Windows", "javascript:alert(1)", "example.com", "hello world", ""]
+        {
+            assert!(parse_url(text).is_none(), "{text}");
+        }
+    }
+
+    #[test]
+    fn rejects_local_and_internal_hosts() {
+        for url in [
+            "http://localhost:3000",
+            "http://intranet/",
+            "http://app.localhost",
+            "http://printer.local",
+            "http://nas.LAN",
+            "http://router.home",
+            "http://api.internal",
+            "http://127.0.0.1",
+            "http://127.1",
+            "http://2130706433",
+            "http://0.0.0.0",
+            "http://10.0.0.1",
+            "http://172.16.0.1",
+            "http://192.168.1.1",
+            "http://169.254.169.254/latest/meta-data",
+            "http://100.64.0.1",
+            "http://255.255.255.255",
+            "http://[::1]",
+            "http://[::]",
+            "http://[fd00::1]",
+            "http://[fe80::1]",
+            "http://[::ffff:127.0.0.1]",
+            "http://[::ffff:192.168.1.1]",
+        ] {
+            assert!(parse_url(url).is_none(), "{url}");
+        }
+    }
+
+    #[test]
+    fn reads_open_graph_tags_first_and_falls_back_to_the_title() {
+        let tags = read_tags(
+            r#"<html><head>
+                <title> Page title </title>
+                <meta property="og:title" content="OG title">
+                <meta property="og:title" content="Second OG title">
+                <meta name="Description" content="  A description  ">
+                <meta name="twitter:image" content="">
+                <meta charset="utf-8">
+            </head></html>"#,
+        );
+        assert_eq!(tags.get("og:title").map(String::as_str), Some("OG title"));
+        assert_eq!(tags.get("title").map(String::as_str), Some("Page title"));
+        assert_eq!(tags.get("description").map(String::as_str), Some("A description"));
+        assert!(!tags.contains_key("twitter:image"));
+    }
+
+    #[test]
+    fn reads_broken_html() {
+        let tags = read_tags("<title>Unclosed <meta name=description content=x");
+        assert!(tags.contains_key("title"));
+        assert!(read_tags("").is_empty());
+    }
+}
