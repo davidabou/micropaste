@@ -59,6 +59,7 @@ fn is_public_ip(ip: IpAddr) -> bool {
                 || ip.is_broadcast()
                 || ip.octets()[0] == 100 && (64..128).contains(&ip.octets()[1])) // Carrier-grade NAT
         }
+        IpAddr::V6(ip) if let Some(v4) = ip.to_ipv4_mapped() => is_public_ip(IpAddr::V4(v4)),
         IpAddr::V6(ip) => {
             let first = ip.segments()[0];
             !(ip.is_loopback()
