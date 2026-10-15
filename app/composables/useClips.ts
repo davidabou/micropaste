@@ -1,5 +1,6 @@
+import type { UnlistenFn } from '@tauri-apps/api/event'
 import { invoke } from '@tauri-apps/api/core'
-import { listen, type UnlistenFn } from '@tauri-apps/api/event'
+import { listen } from '@tauri-apps/api/event'
 
 export interface Clip {
   id: number
@@ -19,8 +20,9 @@ export interface PartialCopy {
   total: number
 }
 
-export const copiedText = (partial: PartialCopy | null) =>
-  partial ? `Copied (${partial.copied}/${partial.total})` : 'Copied'
+export function copiedText(partial: PartialCopy | null) {
+  return partial ? `Copied (${partial.copied}/${partial.total})` : 'Copied'
+}
 
 const SEARCH_DELAY_MS = 120
 

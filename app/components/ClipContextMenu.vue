@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { invoke } from '@tauri-apps/api/core'
 import type { Clip } from '@/composables/useClips'
+import { invoke } from '@tauri-apps/api/core'
 
 const props = defineProps<{
   clip: Clip

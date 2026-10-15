@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { animate } from 'motion-v'
 import type { Clip, PartialCopy } from '@/composables/useClips'
+import { animate } from 'motion-v'
 
 const props = defineProps<{
   clips: Clip[]
@@ -11,12 +11,6 @@ const props = defineProps<{
   loading?: boolean
 }>()
 
-const cards = new Map<number, { copy: () => Promise<void> }>()
-const setCard = (id: number, card: unknown) => {
-  if (card) cards.set(id, card as { copy: () => Promise<void> })
-  else cards.delete(id)
-}
-
 const emit = defineEmits<{
   info: [clip: Clip]
   favorite: [clip: Clip]
@@ -26,6 +20,12 @@ const emit = defineEmits<{
   move: [clip: Clip, target: Clip]
   moveEnd: []
 }>()
+
+const cards = new Map<number, { copy: () => Promise<void> }>()
+function setCard(id: number, card: unknown) {
+  if (card) cards.set(id, card as { copy: () => Promise<void> })
+  else cards.delete(id)
+}
 
 const REORDER_PAUSE_MS = 150
 let lastMove = 0
@@ -156,10 +156,10 @@ function onRemoveFrom(clip: Clip, collection: number) {
               :in-collection="collection !== null"
               :layout="layout"
               class="w-full"
+              :confirm="pending?.clip === clip.id ? pending.action : null"
               @copy="onCopy(clip)"
               @info="emit('info', clip)"
               @favorite="emit('favorite', clip)"
-              :confirm="pending?.clip === clip.id ? pending.action : null"
               @ask-delete="askDelete(clip)"
               @delete="confirmDelete(clip)"
               @cancel-delete="pending = null"

@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { animate } from 'motion-v'
 import type { Collection } from '@/composables/useCollections'
-
-const selected = defineModel<number | null>({ default: null })
+import { animate } from 'motion-v'
 
 const emit = defineEmits<{
   prefetch: [collection: number]
   dropClip: [collection: number]
 }>()
+
+const selected = defineModel<number | null>({ default: null })
 
 const { collections, historyCount, create, rename, reorder, remove } = useCollections()
 
@@ -54,7 +54,7 @@ const editing = ref<'new' | number | null>(null)
 const draft = ref('')
 let nameInput: HTMLInputElement | null = null
 // Gets the <input> itself, from a plain input or a Motion one (a component)
-const setNameInput = (el: unknown) => {
+function setNameInput(el: unknown) {
   nameInput = ((el as { $el?: HTMLInputElement } | null)?.$el ?? el) as HTMLInputElement | null
 }
 
@@ -90,7 +90,7 @@ const confirmingDelete = ref<number | null>(null)
 const deleteBubbleFor = ref<number | null>(null)
 const deleteFromWidth = ref(0)
 const deleteToWidth = ref(0)
-const setDeleteContent = (el: unknown) => {
+function setDeleteContent(el: unknown) {
   const node = ((el as { $el?: HTMLElement } | null)?.$el ?? el) as HTMLElement | null
   if (node) deleteToWidth.value = node.offsetWidth
 }

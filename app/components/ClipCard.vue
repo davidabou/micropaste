@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import type { Clip, PartialCopy } from '@/composables/useClips'
 import { invoke } from '@tauri-apps/api/core'
-import { copiedText, type Clip, type PartialCopy } from '@/composables/useClips'
+import { copiedText } from '@/composables/useClips'
 
 const props = defineProps<{
   clip: Clip
@@ -320,7 +321,7 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
           <footer
             class="absolute inset-x-0 bottom-0 z-10 px-3 py-2"
             :class="[
-              footerText ?? (hasCover && 'bg-linear-to-t from-white/90 via-white/60 to-transparent pt-8 dark:from-black/85 dark:via-black/50'),
+              footerText ?? (hasCover && 'bg-linear-to-t from-white/90 via-white/60 to-transparent pt-8 dark:from-black/85 dark:via-black/50')
             ]"
           >
             <Tooltip v-if="title" :content="files?.map(fileName).join('\n') ?? title">

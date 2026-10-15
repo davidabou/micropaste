@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import type { UnlistenFn } from '@tauri-apps/api/event'
 import { invoke } from '@tauri-apps/api/core'
-import { listen, type UnlistenFn } from '@tauri-apps/api/event'
+import { listen } from '@tauri-apps/api/event'
 
 const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{ close: [] }>()
@@ -57,7 +58,7 @@ function cancelRetentionOnEscape(event: KeyboardEvent) {
 }
 // The click that cancels the confirmation must not also close the panel
 let cancellingClick: PointerEvent | null = null
-const cancelRetentionOnOutsideClick = (event: PointerEvent) => {
+function cancelRetentionOnOutsideClick(event: PointerEvent) {
   if ((event.target as Element | null)?.closest('[data-retention-confirm]')) return
   pendingRetention.value = null
   cancellingClick = event

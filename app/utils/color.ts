@@ -6,7 +6,7 @@ export interface CopiedColor {
 
 const HEX = /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i
 const BARE_HEX = /^(?:[0-9a-f]{6}|[0-9a-f]{8})$/i
-const COLOR_FUNCTION = /^(rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\(\s*[^()]*\)$/i
+const COLOR_FUNCTION = /^(rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\([^()]*\)$/i
 
 export function copiedColor(text: string): CopiedColor | null {
   const value = text.trim()

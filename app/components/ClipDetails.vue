@@ -1,7 +1,8 @@
 <script setup lang="ts">
+import type { Clip, PartialCopy } from '@/composables/useClips'
 import { invoke } from '@tauri-apps/api/core'
 import { animate } from 'motion-v'
-import { copiedText, type Clip, type PartialCopy } from '@/composables/useClips'
+import { copiedText } from '@/composables/useClips'
 
 const props = defineProps<{
   clip: Clip | null
@@ -222,10 +223,10 @@ const carouselButton = 'absolute top-1/2 flex size-7 -translate-y-1/2 cursor-poi
         <Motion
           :initial="{ x: '105%' }"
           :animate="panelAnimation"
+          class="fixed inset-y-2 right-2 z-50 flex w-96 flex-col overflow-hidden rounded-lg border border-black/[5.78%] bg-[#f9f9f9] text-sm shadow-2xl dark:border-black/20 dark:bg-[#2c2c2c]"
           @animation-complete="onPanelAnimated"
           @keydown.left="go(-1)"
           @keydown.right="go(1)"
-          class="fixed inset-y-2 right-2 z-50 flex w-96 flex-col overflow-hidden rounded-lg border border-black/[5.78%] bg-[#f9f9f9] text-sm shadow-2xl dark:border-black/20 dark:bg-[#2c2c2c]"
         >
           <header class="flex items-center gap-2 px-4 pt-4 pb-3">
             <DialogTitle class="min-w-0 flex-1 truncate text-base font-medium">
@@ -263,10 +264,10 @@ const carouselButton = 'absolute top-1/2 flex size-7 -translate-y-1/2 cursor-poi
                   </div>
                 </Transition>
                 <template v-if="isGroup">
-                  <button type="button" :class="[carouselButton, 'left-2']" aria-label="Previous file" @click="go(-1)">
+                  <button type="button" class="left-2" :class="[carouselButton]" aria-label="Previous file" @click="go(-1)">
                     <Icon name="gravity-ui:chevron-left" class="text-sm" />
                   </button>
-                  <button type="button" :class="[carouselButton, 'right-2']" aria-label="Next file" @click="go(1)">
+                  <button type="button" class="right-2" :class="[carouselButton]" aria-label="Next file" @click="go(1)">
                     <Icon name="gravity-ui:chevron-right" class="text-sm" />
                   </button>
                   <div
