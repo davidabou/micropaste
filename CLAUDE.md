@@ -16,6 +16,7 @@ Local-first, fast, with a premium, native Windows 11 design (inspired by Supaste
 - Look at the code directly instead of guessing.
 - CI (`.github/workflows/ci.yml`) fails on any lint, type, test, rustfmt or clippy error, on a `cargo deny` issue (advisories, licenses: `src-tauri/deny.toml`). `release.yml` runs the CI before building.
 - Git hooks (simple-git-hooks): ESLint on staged files (nano-staged), and conventional commit messages (commitlint), which the release notes rely on.
+- Commits that only touch the showcase site (`site/`) never use `feat:`, `fix:` or `perf:`: use `chore(site):`, `docs(site):` or `style(site):`, so they stay out of the app's release notes.
 
 ## Stack
 
