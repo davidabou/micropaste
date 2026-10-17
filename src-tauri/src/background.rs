@@ -124,7 +124,7 @@ fn create_tray(app: &App, shortcut: &str) -> tauri::Result<()> {
     let menu = Menu::with_items(app, &[&open, &PredefinedMenuItem::separator(app)?, &startup, &quit])?;
     app.manage(TrayItems { open, startup });
 
-    let icon = Image::from_bytes(include_bytes!("../icons/32x32.png"))?;
+    let icon = Image::from_bytes(include_bytes!("../icons/tray.png"))?;
 
     TrayIconBuilder::with_id("main")
         .icon(icon)
