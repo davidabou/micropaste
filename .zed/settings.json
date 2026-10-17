@@ -1,0 +1,14 @@
+{
+  "lsp": {
+    "tailwindcss-language-server": {
+      "settings": {
+        "experimental": {
+          "configFile": {
+            "app/assets/css/main.css": "app/**",
+            "site/app/assets/css/main.css": "site/**"
+          }
+        }
+      }
+    }
+  }
+}
