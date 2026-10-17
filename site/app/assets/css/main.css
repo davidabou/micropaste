@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+@theme {
+    --font-sans: 'Outfit', 'Segoe UI', sans-serif;
+    --font-title: 'Geist Pixel', sans-serif;
+    --color-accent: #0f6cbd;
+    --color-accent-hover: #115ea3;
+    --shadow-card: 0 16px 40px -12px rgb(24 38 84 / 0.35);
+}
+
+@utility bg-dots {
+  background-image: radial-gradient(rgb(0 0 0 / 0.12) 1px, transparent 1px);
+  background-size: 16px 16px;
+  mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
+}
+
+html {
+  scroll-padding-top: 6.5rem;
+  background-color: var(--color-neutral-100);
+  color: var(--color-neutral-800);
+}

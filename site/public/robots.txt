@@ -1,0 +1,4 @@
+User-Agent: *
+Disallow:
+
+Sitemap: https://micropaste.abou.dev/sitemap.xml
