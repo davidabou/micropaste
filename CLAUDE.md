@@ -74,4 +74,5 @@ Local-first, fast, with a premium, native Windows 11 design (inspired by Supaste
 - Performance: lazily mount anything per tile (tooltip and menu portals, corner buttons on hover).
 - Windows sometimes fails to make a file thumbnail: the file preview cache only keeps previews that worked.
 - File type names come in the Windows language while the UI is in English: accepted until the app is translated.
+- The taskbar and window icon is `icons/icon.ico` embedded in the exe by `tauri-build`, which doesn't watch it: after changing it, run `cargo clean -p Micropaste` in `src-tauri/`, or `tauri dev` keeps the old one.
 - Bash heredocs mangle backslashes: use the Edit tool for code containing them. Python on Windows: write with `newline=''` (CRLF).
