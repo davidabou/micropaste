@@ -9,13 +9,13 @@ permissions:
   contents: read
 
 jobs:
-  ci:
-    name: CI
-    uses: ./.github/workflows/ci.yml
+  app:
+    name: App
+    uses: ./.github/workflows/app.yml
 
   release:
     name: Windows installer
-    needs: ci
+    needs: app
     runs-on: windows-latest
     permissions:
       contents: write

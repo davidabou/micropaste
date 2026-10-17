@@ -9,7 +9,7 @@
 A visual clipboard library for Windows 11. Everything you copy is kept, previewed as a rich card,<br>
 and ready to reuse in a single click or drag.
 
-[![CI](https://github.com/davidabou/micropaste/actions/workflows/ci.yml/badge.svg)](https://github.com/davidabou/micropaste/actions/workflows/ci.yml)
+[![App](https://github.com/davidabou/micropaste/actions/workflows/app.yml/badge.svg)](https://github.com/davidabou/micropaste/actions/workflows/app.yml)
 ![Windows 11](https://img.shields.io/badge/Windows-11-0078D4?logo=windows11&logoColor=white)
 ![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)
 ![Nuxt 4](https://img.shields.io/badge/Nuxt-4-00DC82?logo=nuxt&logoColor=white)

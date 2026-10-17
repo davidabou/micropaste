@@ -1,15 +1,18 @@
-name: CI
+name: App
 
 on:
+  # The showcase site has its own workflow (site.yml)
   push:
     branches: [main]
+    paths-ignore: ['site/**']
   pull_request:
+    paths-ignore: ['site/**']
   # Run first by the release workflow
   workflow_call:
 
 # A new push cancels the checks still running on the same branch
 concurrency:
-  group: ci-${{ github.ref }}
+  group: app-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:

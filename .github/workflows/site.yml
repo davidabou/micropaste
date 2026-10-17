@@ -1,0 +1,44 @@
+name: Site
+
+# Checks the showcase site: Vercel deploys it from main
+on:
+  push:
+    branches: [main]
+    paths: ['site/**', .github/workflows/site.yml]
+  pull_request:
+    paths: ['site/**', .github/workflows/site.yml]
+
+concurrency:
+  group: site-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  site:
+    name: Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: oven-sh/setup-bun@v2
+
+      # The ESLint config is the root one, shared with the app
+      - name: Install root dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Lint
+        run: bunx eslint site
+
+      - name: Install dependencies
+        working-directory: site
+        run: bun install --frozen-lockfile
+
+      - name: Type check
+        working-directory: site
+        run: bun run typecheck
+
+      - name: Build
+        working-directory: site
+        run: bun run generate
