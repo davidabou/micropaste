@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { copiedLink, linkDomain } from '@/utils/link'
+import { copiedLink, linkDomain, linkLabel } from '@/utils/link'
 
 describe('copiedLink', () => {
   it('keeps web links, trimmed', () => {
@@ -11,6 +11,14 @@ describe('copiedLink', () => {
     'rejects %j',
     text => expect(copiedLink(text)).toBeNull()
   )
+})
+
+describe('linkLabel', () => {
+  it('drops the scheme, www and a trailing slash', () => {
+    expect(linkLabel('https://www.example.com/')).toBe('example.com')
+    expect(linkLabel('HTTP://torph.lochie.me/blog/post?a=1')).toBe('torph.lochie.me/blog/post?a=1')
+    expect(linkLabel('https://example.com/a/')).toBe('example.com/a')
+  })
 })
 
 describe('linkDomain', () => {

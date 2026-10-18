@@ -173,12 +173,18 @@ const fileStack = computed(() => {
 const coverImage = computed(() => (isImage.value ? `${props.clip.content}.png` : preview.value?.image ?? null))
 const hasCover = computed(() => coverImage.value !== null || fileThumbnail.value !== null || color.value !== null)
 const footerText = computed(() => (color.value ? (isLightColor(color.value.css) ? 'text-black/90' : 'text-white') : null))
-const title = computed(() => preview.value?.title ?? fileTitle.value ?? color.value?.value)
+const pageTitle = computed(() => preview.value?.title ?? null)
+const title = computed(() => (link.value ? linkLabel(link.value) : fileTitle.value ?? color.value?.value))
 const isList = computed(() => props.layout === 'list')
 const listTitle = computed(() => {
   if (title.value) return title.value
   if (isImage.value) return props.clip.width && props.clip.height ? `Image ${props.clip.width} × ${props.clip.height}` : 'Image'
-  return link.value ?? props.clip.content.trim().replace(/\s+/g, ' ')
+  return props.clip.content.trim().replace(/\s+/g, ' ')
+})
+const titleTooltip = computed(() => {
+  if (files.value) return files.value.map(fileName).join('\n')
+  if (link.value) return [pageTitle.value, link.value].filter(Boolean).join('\n')
+  return isList.value ? listTitle.value : title.value
 })
 const listTextMask = computed(() => {
   const covered = props.inCollection ? 96 : 64
@@ -234,7 +240,7 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
           <Icon v-else name="gravity-ui:text-align-left" class="text-[20px] opacity-50" />
         </div>
         <div class="min-w-0 flex-1" :style="actionsShown ? { maskImage: listTextMask } : undefined">
-          <Tooltip :content="files?.map(fileName).join('\n') ?? listTitle">
+          <Tooltip :content="titleTooltip">
             <p class="truncate text-sm font-medium">
               {{ listTitle }}
             </p>
@@ -250,10 +256,10 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
               <span class="opacity-40">·</span>
               <span class="shrink-0 opacity-60">{{ formatBytes(clip.byteSize) }}</span>
             </template>
-            <template v-else-if="color || svgSrc || files || link">
+            <template v-else-if="color || svgSrc || files || pageTitle">
               <span class="opacity-40">·</span>
               <span class="truncate opacity-60">
-                {{ color ? color.format : svgSrc ? 'SVG' : files ? (files.length > 1 ? `${files.length} items` : 'Folder') : linkDomain(link!) }}
+                {{ color ? color.format : svgSrc ? 'SVG' : files ? (files.length > 1 ? `${files.length} items` : 'Folder') : pageTitle }}
               </span>
             </template>
           </div>
@@ -325,7 +331,7 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
               footerText ?? (hasCover && 'bg-linear-to-t from-white/90 via-white/60 to-transparent pt-8 dark:from-black/85 dark:via-black/50')
             ]"
           >
-            <Tooltip v-if="title" :content="files?.map(fileName).join('\n') ?? title">
+            <Tooltip v-if="title" :content="titleTooltip">
               <p class="mb-1 truncate font-medium text-sm">
                 {{ title }}
               </p>
@@ -345,9 +351,6 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
               <span v-else-if="color" class="ml-auto shrink-0 opacity-70">{{ color.format }}</span>
               <span v-else-if="svgSrc" class="ml-auto shrink-0 opacity-60">SVG</span>
               <span v-else-if="files" class="ml-auto shrink-0 opacity-60">{{ files.length > 1 ? `${files.length} items` : 'Folder' }}</span>
-              <Tooltip v-else-if="link" :content="link">
-                <span class="ml-auto truncate opacity-70">{{ linkDomain(link) }}</span>
-              </Tooltip>
             </div>
           </footer>
         </div>
