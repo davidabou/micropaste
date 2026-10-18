@@ -5,6 +5,14 @@ const columns = [
     links: sections
   },
   {
+    title: 'Project',
+    links: [
+      { label: 'GitHub', to: REPO_URL },
+      { label: 'Report an issue', to: ISSUES_URL },
+      { label: 'Sponsor', to: SPONSOR_URL }
+    ]
+  },
+  {
     title: 'More projects',
     links: [
       { label: 'Harmonix', to: 'https://github.com/harmonix-js/harmonix' },
@@ -18,7 +26,7 @@ const columns = [
 <template>
   <footer class="w-full mt-36 border-t border-black/6 bg-white/50">
     <div class="flex flex-col gap-16 max-w-5xl mx-auto px-6 pt-16">
-      <div class="grid gap-10 sm:grid-cols-[2fr_1fr_1fr]">
+      <div class="grid gap-10 sm:grid-cols-[2fr_1fr_1fr_1fr]">
         <div class="flex flex-col gap-4">
           <a href="/" class="flex items-center gap-2 font-medium w-fit" @click.prevent="scrollToTop">
             <Icon name="gravity-ui:cubes-3-overlap" size="18" />
