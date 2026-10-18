@@ -181,11 +181,6 @@ const listTitle = computed(() => {
   if (isImage.value) return props.clip.width && props.clip.height ? `Image ${props.clip.width} × ${props.clip.height}` : 'Image'
   return props.clip.content.trim().replace(/\s+/g, ' ')
 })
-const titleTooltip = computed(() => {
-  if (files.value) return files.value.map(fileName).join('\n')
-  if (link.value) return [pageTitle.value, link.value].filter(Boolean).join('\n')
-  return isList.value ? listTitle.value : title.value
-})
 const listTextMask = computed(() => {
   const covered = props.inCollection ? 96 : 64
   return `linear-gradient(to left, transparent ${covered}px, black ${covered + 32}px)`
@@ -240,11 +235,9 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
           <Icon v-else name="gravity-ui:text-align-left" class="text-[20px] opacity-50" />
         </div>
         <div class="min-w-0 flex-1" :style="actionsShown ? { maskImage: listTextMask } : undefined">
-          <Tooltip :content="titleTooltip">
-            <p class="truncate text-sm font-medium">
-              {{ listTitle }}
-            </p>
-          </Tooltip>
+          <p class="truncate text-sm font-medium">
+            {{ listTitle }}
+          </p>
           <div class="mt-0.5 flex min-w-0 items-center gap-1.5">
             <Tooltip :content="clip.sourceAppName ?? 'Unknown app'">
               <AppIcon :path="clip.sourceAppPath" />
@@ -331,11 +324,9 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
               footerText ?? (hasCover && 'bg-linear-to-t from-white/90 via-white/60 to-transparent pt-8 dark:from-black/85 dark:via-black/50')
             ]"
           >
-            <Tooltip v-if="title" :content="titleTooltip">
-              <p class="mb-1 truncate font-medium text-sm">
-                {{ title }}
-              </p>
-            </Tooltip>
+            <p v-if="title" class="mb-1 truncate font-medium text-sm">
+              {{ title }}
+            </p>
             <div class="flex items-center gap-1.5">
               <Tooltip :content="clip.sourceAppName ?? 'Unknown app'">
                 <AppIcon :path="clip.sourceAppPath" />
