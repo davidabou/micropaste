@@ -14,7 +14,7 @@ Local-first, fast, with a premium, native Windows 11 design (inspired by Supaste
 - Package manager: **Bun** only (no pnpm or npm).
 - The user often edits files themself: re-read before editing, and keep their changes.
 - Look at the code directly instead of guessing.
-- CI: `.github/workflows/app.yml` (the app) fails on any lint, type, test, rustfmt or clippy error, on a `cargo deny` issue (advisories, licenses: `src-tauri/deny.toml`). `site.yml` lints, type checks and builds the showcase site; each ignores the other one's files. `release.yml` runs `app.yml` before building.
+- CI: `.github/workflows/app.yml` (the app) fails on any lint, type, test, rustfmt or clippy error, on a `cargo deny` issue (advisories, licenses: `src-tauri/deny.toml`). `site.yml` lints and type checks the showcase site (Vercel builds it); each ignores the other one's files. `release.yml` runs `app.yml` before building.
 - Git hooks (simple-git-hooks): ESLint on staged files (nano-staged), and conventional commit messages (commitlint), which the release notes rely on.
 - Commits that only touch the showcase site (`site/`) never use `feat:`, `fix:` or `perf:`: use `chore(site):`, `docs(site):` or `style(site):`, so they stay out of the app's release notes.
 

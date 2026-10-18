@@ -1,6 +1,6 @@
 name: Site
 
-# Checks the showcase site: Vercel deploys it from main
+# Lints and type checks the showcase site
 on:
   push:
     branches: [main]
@@ -38,7 +38,3 @@ jobs:
       - name: Type check
         working-directory: site
         run: bun run typecheck
-
-      - name: Build
-        working-directory: site
-        run: bun run generate
