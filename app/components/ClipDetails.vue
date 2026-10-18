@@ -122,6 +122,12 @@ const lastCopied = computed(() =>
 )
 const formatNumber = (value: number) => value.toLocaleString('en-US')
 
+const copySwap = {
+  initial: { opacity: 0, scale: 0.8, filter: 'blur(4px)' },
+  animate: { opacity: 1, scale: 1, filter: 'blur(0px)' },
+  exit: { opacity: 0, scale: 0.8, filter: 'blur(4px)' }
+}
+const copySwapTransition = { type: 'spring', bounce: 0, duration: 0.3 } as const
 const copyLabel = ref<string | null>(null)
 const copyFailed = ref(false)
 const { start: clearCopyLabelLater } = useTimeoutFn(() => (copyLabel.value = null), () => (copyFailed.value ? 1800 : 1200), { immediate: false })
@@ -420,19 +426,25 @@ const carouselButton = 'absolute top-1/2 flex size-7 -translate-y-1/2 cursor-poi
           </div>
 
           <footer class="flex gap-2 border-t border-black/[5.78%] p-3 dark:border-white/6">
-            <Button
-              variant="filled"
-              :icon="copyLabel && copyFailed ? 'gravity-ui:circle-xmark' : 'gravity-ui:copy'"
-              class="flex-1"
-              :disabled="allMissing"
-              @click="copy"
-            >
-              {{ copyLabel ?? 'Copy' }}
+            <Button variant="filled" class="relative flex-1" :disabled="allMissing" @click="copy">
+              <AnimatePresence mode="popLayout" :initial="false">
+                <Motion
+                  :key="copyLabel ?? 'Copy'"
+                  v-bind="copySwap"
+                  :transition="copySwapTransition"
+                  class="flex min-w-0 items-center justify-center gap-2"
+                >
+                  <Icon
+                    :name="copyLabel ? (copyFailed ? 'gravity-ui:circle-xmark' : 'gravity-ui:check') : 'gravity-ui:copy'"
+                    class="shrink-0 text-base opacity-60 transition-opacity duration-100 group-hover:opacity-100"
+                  />
+                  <span class="truncate text-sm">{{ copyLabel ?? 'Copy' }}</span>
+                </Motion>
+              </AnimatePresence>
             </Button>
             <Tooltip :content="shown.favorite ? 'Remove from favorites' : 'Add to favorites'">
               <Button
                 :icon="shown.favorite ? 'gravity-ui:star-fill' : 'gravity-ui:star'"
-                :pressed="shown.favorite"
                 @click="emit('favorite', shown)"
               />
             </Tooltip>
