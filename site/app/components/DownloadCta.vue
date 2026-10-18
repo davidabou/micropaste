@@ -71,7 +71,7 @@ function onPointerLeave() {
         Free, open source and local-first. Install it once, and every copy is kept from then on.
       </Motion>
       <Motion class="flex flex-col items-center gap-3" v-bind="reveal(0.2)">
-        <Button :to="RELEASES_URL" icon="mdi:microsoft-windows-classic">
+        <Button :to="DOWNLOAD_URL" icon="mdi:microsoft-windows-classic">
           Download for Windows
         </Button>
         <small class="text-neutral-400">Windows 11 · 64-bit · No account needed</small>

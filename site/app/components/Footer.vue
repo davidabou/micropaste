@@ -43,7 +43,7 @@ const columns = [
             Your clipboard, but you can actually see it. A visual clipboard library for Windows 11.
           </p>
 
-          <Button :to="RELEASES_URL" icon="mdi:microsoft-windows-classic" size="sm">
+          <Button :to="DOWNLOAD_URL" icon="mdi:microsoft-windows-classic" size="sm">
             Download for Windows
           </Button>
 

@@ -34,7 +34,7 @@ useHead({
       image,
       'applicationCategory': 'UtilitiesApplication',
       'operatingSystem': 'Windows 11',
-      'downloadUrl': RELEASES_URL,
+      'downloadUrl': DOWNLOAD_URL,
       'license': 'https://opensource.org/licenses/MIT',
       'isAccessibleForFree': true,
       'offers': { '@type': 'Offer', 'price': 0, 'priceCurrency': 'USD' },
@@ -106,7 +106,7 @@ const windowsFacts = [
         </Motion>
 
         <Motion class="flex justify-center gap-4" v-bind="appear(1.4)">
-          <Button :to="RELEASES_URL" icon="mdi:microsoft-windows-classic">
+          <Button :to="DOWNLOAD_URL" icon="mdi:microsoft-windows-classic">
             Download for Windows
           </Button>
 

@@ -53,7 +53,7 @@ onBeforeUnmount(() => window.removeEventListener('scroll', onScroll))
           </Button>
         </li>
         <li>
-          <Button :to="RELEASES_URL" icon="mdi:microsoft-windows-classic" size="sm">
+          <Button :to="DOWNLOAD_URL" icon="mdi:microsoft-windows-classic" size="sm">
             Download
           </Button>
         </li>
