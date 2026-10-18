@@ -6,6 +6,7 @@ export interface LinkPreview {
   description: string | null
   siteName: string | null
   image: string | null
+  icon: string | null
   stale: boolean
 }
 

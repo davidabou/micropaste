@@ -261,21 +261,23 @@ async fn load_link_preview(
     // Cached under the copied text, which may differ slightly from the normalized URL
     preview.url = url.to_owned();
 
-    let old_image = previous.as_ref().and_then(|previous| previous.image.clone());
+    let old_files: Vec<String> =
+        previous.iter().flat_map(|previous| [previous.image.clone(), previous.icon.clone()]).flatten().collect();
     if let Some(previous) = previous
         && preview.title.is_none()
         && preview.image.is_none()
     {
-        preview = LinkPreview { stale: false, ..previous };
+        let icon = preview.icon.take().or_else(|| previous.icon.clone());
+        preview = LinkPreview { stale: false, icon, ..previous };
     }
 
     let conn = db.0.lock().unwrap();
     db::save_link_preview(&conn, &preview, clipboard::now_ms()).map_err(|e| e.to_string())?;
 
-    if let Some(old_image) = old_image.filter(|old| preview.image.as_ref() != Some(old))
-        && !db::is_image_file_used(&conn, &old_image).unwrap_or(true)
-    {
-        let _ = images::remove_file(&images_dir, &old_image);
+    for old_file in old_files {
+        if !db::is_image_file_used(&conn, &old_file).unwrap_or(true) {
+            let _ = images::remove_file(&images_dir, &old_file);
+        }
     }
     Ok(Some(preview))
 }

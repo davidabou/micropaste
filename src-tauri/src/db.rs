@@ -88,6 +88,9 @@ const MIGRATIONS: &[&str] = &[
          key TEXT PRIMARY KEY,
          value TEXT NOT NULL
      );",
+    // Refreshed for their favicon
+    "ALTER TABLE link_previews ADD COLUMN icon TEXT;
+     UPDATE link_previews SET fetched_at = 0;",
 ];
 
 fn migrate(conn: &mut Connection) -> rusqlite::Result<()> {
@@ -201,7 +204,7 @@ pub fn is_text_clip(conn: &Connection, text: &str) -> rusqlite::Result<bool> {
 
 pub fn link_preview(conn: &Connection, url: &str) -> rusqlite::Result<Option<LinkPreview>> {
     conn.query_row(
-        "SELECT url, title, description, site_name, image, fetched_at FROM link_previews WHERE url = ?1",
+        "SELECT url, title, description, site_name, image, icon, fetched_at FROM link_previews WHERE url = ?1",
         params![url],
         |row| {
             Ok(LinkPreview {
@@ -210,7 +213,8 @@ pub fn link_preview(conn: &Connection, url: &str) -> rusqlite::Result<Option<Lin
                 description: row.get(2)?,
                 site_name: row.get(3)?,
                 image: row.get(4)?,
-                fetched_at: row.get(5)?,
+                icon: row.get(5)?,
+                fetched_at: row.get(6)?,
                 stale: false,
             })
         },
@@ -220,7 +224,7 @@ pub fn link_preview(conn: &Connection, url: &str) -> rusqlite::Result<Option<Lin
 
 pub fn is_image_file_used(conn: &Connection, file: &str) -> rusqlite::Result<bool> {
     conn.query_row(
-        "SELECT EXISTS (SELECT 1 FROM link_previews WHERE image = ?1)
+        "SELECT EXISTS (SELECT 1 FROM link_previews WHERE image = ?1 OR icon = ?1)
              OR EXISTS (SELECT 1 FROM clips WHERE kind = 'image' AND content || '.png' = ?1)
              OR EXISTS (SELECT 1 FROM clips WHERE kind = 'files' AND instr(content, ?1) > 0)",
         params![file],
@@ -230,9 +234,9 @@ pub fn is_image_file_used(conn: &Connection, file: &str) -> rusqlite::Result<boo
 
 pub fn save_link_preview(conn: &Connection, preview: &LinkPreview, now: i64) -> rusqlite::Result<()> {
     conn.execute(
-        "INSERT OR REPLACE INTO link_previews (url, title, description, site_name, image, fetched_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-        params![preview.url, preview.title, preview.description, preview.site_name, preview.image, now],
+        "INSERT OR REPLACE INTO link_previews (url, title, description, site_name, image, icon, fetched_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![preview.url, preview.title, preview.description, preview.site_name, preview.image, preview.icon, now],
     )?;
     Ok(())
 }
@@ -294,6 +298,7 @@ pub fn delete(conn: &Connection, id: i64) -> rusqlite::Result<Vec<String>> {
         {
             conn.execute("DELETE FROM link_previews WHERE url = ?1", params![url])?;
             files.extend(preview.image);
+            files.extend(preview.icon);
         }
     }
     Ok(files)
@@ -490,6 +495,7 @@ mod tests {
             description: None,
             site_name: None,
             image: image.map(Into::into),
+            icon: None,
             fetched_at: 0,
             stale: false,
         }

@@ -217,7 +217,8 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
         :class="(notice || confirm) && 'blur-sm'"
       >
         <div class="relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-md bg-black/[3.73%] dark:bg-white/[6.05%]">
-          <ClipImage v-if="coverImage" :file="coverImage" class="size-full object-cover" />
+          <ClipImage v-if="linkPreview?.icon" :file="linkPreview.icon" class="size-6 object-contain" />
+          <ClipImage v-else-if="coverImage && !link" :file="coverImage" class="size-full object-cover" />
           <img v-else-if="fileThumbnail" :src="fileThumbnail" alt="" draggable="false" class="animate-fade-in size-full object-cover">
           <div
             v-else-if="color"

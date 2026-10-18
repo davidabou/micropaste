@@ -23,6 +23,7 @@ pub struct LinkPreview {
     pub description: Option<String>,
     pub site_name: Option<String>,
     pub image: Option<String>,
+    pub icon: Option<String>,
     #[serde(skip)]
     pub fetched_at: i64,
     pub stale: bool,
@@ -96,6 +97,7 @@ pub async fn fetch(url: &Url, images_dir: &Path) -> reqwest::Result<LinkPreview>
         description: None,
         site_name: None,
         image: None,
+        icon: None,
         fetched_at: 0,
         stale: false,
     };
@@ -113,7 +115,11 @@ pub async fn fetch(url: &Url, images_dir: &Path) -> reqwest::Result<LinkPreview>
 
     let page_url = response.url().clone();
     let html = read_limited(response, MAX_HTML_BYTES).await?;
-    let tags = read_tags(&String::from_utf8_lossy(&html));
+    // Html isn't Send: read it before the next await
+    let (tags, icon_href) = {
+        let document = Html::parse_document(&String::from_utf8_lossy(&html));
+        (read_tags(&document), icon_href(&document))
+    };
 
     let first = |keys: &[&str]| keys.iter().find_map(|key| tags.get(*key).cloned());
     preview.title = first(&["og:title", "twitter:title", "title"]);
@@ -129,11 +135,53 @@ pub async fn fetch(url: &Url, images_dir: &Path) -> reqwest::Result<LinkPreview>
         preview.image = save_image(response, images_dir).await;
     }
 
+    let icon_url = icon_href
+        .and_then(|href| page_url.join(&href).ok())
+        .or_else(|| page_url.join("/favicon.ico").ok())
+        .filter(is_public);
+    if let Some(icon_url) = icon_url
+        && let Ok(response) = client().get(icon_url).send().await.and_then(|r| r.error_for_status())
+    {
+        preview.icon = save_image(response, images_dir).await;
+    }
+
     Ok(preview)
 }
 
-fn read_tags(html: &str) -> HashMap<String, String> {
-    let document = Html::parse_document(html);
+/// The sharpest icon the page declares, the touch icon only when it declares no other
+fn icon_href(document: &Html) -> Option<String> {
+    let link = Selector::parse("link[rel][href]").unwrap();
+    document
+        .select(&link)
+        .filter_map(|element| {
+            let element = element.value();
+            let href = element.attr("href")?.trim();
+            let rel = element.attr("rel")?.to_ascii_lowercase();
+            let touch = rel.split_whitespace().any(|token| token.starts_with("apple-touch-icon"));
+            if href.is_empty() || !(touch || rel.split_whitespace().any(|token| token == "icon")) {
+                return None;
+            }
+            let svg = element.attr("type").is_some_and(|kind| kind.contains("svg"))
+                || href.split(['?', '#']).next().is_some_and(|path| path.to_ascii_lowercase().ends_with(".svg"));
+            let size = element
+                .attr("sizes")
+                .unwrap_or_default()
+                .split_whitespace()
+                .filter_map(|size| {
+                    if size.eq_ignore_ascii_case("any") {
+                        return Some(u32::MAX);
+                    }
+                    size.to_ascii_lowercase().split_once('x')?.0.parse().ok()
+                })
+                .max()
+                .unwrap_or(if svg { u32::MAX } else { 0 });
+            Some(((!touch, size), href.to_owned()))
+        })
+        .max_by_key(|(rank, _)| *rank)
+        .map(|(_, href)| href)
+}
+
+fn read_tags(document: &Html) -> HashMap<String, String> {
     let meta = Selector::parse("meta[content]").unwrap();
     let title = Selector::parse("title").unwrap();
 
@@ -260,7 +308,7 @@ mod tests {
 
     #[test]
     fn reads_open_graph_tags_first_and_falls_back_to_the_title() {
-        let tags = read_tags(
+        let tags = read_tags(&Html::parse_document(
             r#"<html><head>
                 <title> Page title </title>
                 <meta property="og:title" content="OG title">
@@ -269,7 +317,7 @@ mod tests {
                 <meta name="twitter:image" content="">
                 <meta charset="utf-8">
             </head></html>"#,
-        );
+        ));
         assert_eq!(tags.get("og:title").map(String::as_str), Some("OG title"));
         assert_eq!(tags.get("title").map(String::as_str), Some("Page title"));
         assert_eq!(tags.get("description").map(String::as_str), Some("A description"));
@@ -278,8 +326,29 @@ mod tests {
 
     #[test]
     fn reads_broken_html() {
-        let tags = read_tags("<title>Unclosed <meta name=description content=x");
+        let tags = read_tags(&Html::parse_document("<title>Unclosed <meta name=description content=x"));
         assert!(tags.contains_key("title"));
-        assert!(read_tags("").is_empty());
+        assert!(read_tags(&Html::parse_document("")).is_empty());
+    }
+
+    #[test]
+    fn picks_the_sharpest_icon() {
+        let icon = |html: &str| icon_href(&Html::parse_document(html));
+        assert_eq!(
+            icon(
+                r#"<link rel="apple-touch-icon" sizes="180x180" href="/touch.png">
+                <link rel="shortcut icon" href="/favicon.ico">
+                <link rel="icon" sizes="16x16 32x32" href="/32.png">
+                <link rel="stylesheet" href="/style.css">"#
+            )
+            .as_deref(),
+            Some("/32.png")
+        );
+        assert_eq!(
+            icon(r#"<link rel="icon" sizes="192x192" href="/192.png"><link rel="icon" href="/icon.svg">"#).as_deref(),
+            Some("/icon.svg")
+        );
+        assert_eq!(icon(r#"<link rel="apple-touch-icon" href="/touch.png">"#).as_deref(), Some("/touch.png"));
+        assert_eq!(icon(r#"<link rel="icon" href=" ">"#), None);
     }
 }
