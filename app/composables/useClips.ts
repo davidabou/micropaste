@@ -20,81 +20,73 @@ export interface PartialCopy {
   total: number
 }
 
+export type Tab = 'history' | 'favorites' | number
+type ListTab = Exclude<Tab, 'history'>
+
 export function copiedText(partial: PartialCopy | null) {
   return partial ? `Copied (${partial.copied}/${partial.total})` : 'Copied'
 }
 
 const SEARCH_DELAY_MS = 120
 
-export function useClips(
-  query: MaybeRefOrGetter<string> = '',
-  collection: MaybeRefOrGetter<number | null> = null,
-  favoritesOnly: MaybeRefOrGetter<boolean> = false
-) {
+const scopeOf = (tab: Tab) => (tab === 'history' ? {} : tab === 'favorites' ? { favorites: true } : { collection: tab })
+
+export function useClips(query: MaybeRefOrGetter<string> = '', tab: MaybeRefOrGetter<Tab> = 'history') {
   const history = ref<Clip[]>([])
   const historyLoading = ref(true)
   const { refresh: refreshCounts } = useCollections()
-  const collectionCache = shallowReactive(new Map<number, Clip[]>())
-  const shownCollection = ref<number | null>(toValue(collection))
-  const collectionClips = computed(() =>
-    shownCollection.value === null ? null : collectionCache.get(shownCollection.value) ?? null
-  )
+  const listCache = shallowReactive(new Map<ListTab, Clip[]>())
+  const shownTab = ref<Tab>(toValue(tab))
+  const cachedClips = computed(() => (shownTab.value === 'history' ? null : listCache.get(shownTab.value) ?? null))
   const updateCache = (change: (clips: Clip[]) => Clip[]) => {
-    for (const [id, clips] of collectionCache) collectionCache.set(id, change(clips))
+    for (const [id, clips] of listCache) listCache.set(id, change(clips))
   }
   const results = ref<Clip[] | null>(null)
-  const historyClips = computed(() => (shownCollection.value === null && results.value) || history.value)
-  const openCollectionClips = computed(() =>
-    shownCollection.value === null ? [] : results.value ?? collectionClips.value ?? []
-  )
-  const clips = computed(() => (shownCollection.value === null ? historyClips.value : openCollectionClips.value))
+  const historyClips = computed(() => (shownTab.value === 'history' && results.value) || history.value)
+  const tabClips = computed(() => (shownTab.value === 'history' ? [] : results.value ?? cachedClips.value ?? []))
   const unlisteners: UnlistenFn[] = []
 
   let searchId = 0
-  const searchDelay = shallowRef(SEARCH_DELAY_MS)
-  const { start: searchLater, stop: cancelSearch } = useTimeoutFn(async (current: string, favorites: boolean) => {
+  const { start: searchLater, stop: cancelSearch } = useTimeoutFn(async (current: string) => {
     const id = ++searchId
-    const found = await invoke<Clip[]>('search_clips', { query: current, collection: toValue(collection), favorites })
+    const found = await invoke<Clip[]>('search_clips', { query: current, ...scopeOf(toValue(tab)) })
     if (id === searchId) results.value = found
-  }, searchDelay, { immediate: false })
-  const search = (delay = SEARCH_DELAY_MS) => {
+  }, SEARCH_DELAY_MS, { immediate: false })
+  const search = () => {
     cancelSearch()
     const current = toValue(query).trim()
-    const favorites = toValue(favoritesOnly)
-    if (!current && !favorites) {
+    if (!current) {
       searchId++
       results.value = null
       return
     }
-    searchDelay.value = delay
-    searchLater(current, favorites)
+    searchLater(current)
   }
-  watch(() => toValue(query), () => search())
-  watch(() => toValue(favoritesOnly), () => search(0))
+  watch(() => toValue(query), search)
 
-  const fetchCollection = async (id: number) => {
-    const clips = await invoke<Clip[]>('list_clips', { collection: id })
-    collectionCache.set(id, clips)
+  const fetchList = async (id: ListTab) => {
+    const clips = await invoke<Clip[]>('list_clips', scopeOf(id))
+    listCache.set(id, clips)
   }
 
-  const prefetch = (id: number) => {
-    if (!collectionCache.has(id)) fetchCollection(id).catch(() => {})
+  const prefetch = (id: ListTab) => {
+    if (!listCache.has(id)) fetchList(id).catch(() => {})
   }
 
   let loadId = 0
-  const loadCollection = async () => {
+  const loadTab = async () => {
     const id = ++loadId
-    const current = toValue(collection)
-    if (current === null || collectionCache.has(current)) {
-      shownCollection.value = current
-      if (current !== null) fetchCollection(current).catch(() => {})
+    const current = toValue(tab)
+    if (current === 'history' || listCache.has(current)) {
+      shownTab.value = current
+      if (current !== 'history') fetchList(current).catch(() => {})
       return
     }
-    await fetchCollection(current)
-    if (id === loadId) shownCollection.value = current
+    await fetchList(current)
+    if (id === loadId) shownTab.value = current
   }
-  watch(() => toValue(collection), () => {
-    loadCollection()
+  watch(() => toValue(tab), () => {
+    loadTab()
     if (results.value) search()
   })
 
@@ -123,7 +115,7 @@ export function useClips(
     const live = history.value
     history.value = [...live, ...saved.filter(s => !live.some(c => c.id === s.id))]
     historyLoading.value = false
-    loadCollection()
+    loadTab()
   })
 
   onBeforeUnmount(() => unlisteners.forEach(unlisten => unlisten()))
@@ -142,8 +134,8 @@ export function useClips(
 
   const onClipDropped = (clip: Clip, collectionId: number) => {
     refreshCounts()
-    const cached = collectionCache.get(collectionId)
-    if (cached) collectionCache.set(collectionId, [clip, ...without(cached, clip)!])
+    const cached = listCache.get(collectionId)
+    if (cached) listCache.set(collectionId, [clip, ...without(cached, clip)!])
   }
 
   const dropIntoCollection = async (collectionId: number, content: { text: string } | { image: Uint8Array }) => {
@@ -156,34 +148,34 @@ export function useClips(
   const addToCollection = async (clip: Clip, collectionId: number) => {
     await invoke('add_to_collection', { collection: collectionId, clip: clip.id })
     refreshCounts()
-    const cached = collectionCache.get(collectionId)
-    if (cached) collectionCache.set(collectionId, [clip, ...without(cached, clip)!])
+    const cached = listCache.get(collectionId)
+    if (cached) listCache.set(collectionId, [clip, ...without(cached, clip)!])
   }
 
   const removeFromCollection = async (clip: Clip, collectionId: number) => {
     await invoke('remove_from_collection', { collection: collectionId, clip: clip.id })
     refreshCounts()
-    const cached = collectionCache.get(collectionId)
-    if (cached) collectionCache.set(collectionId, without(cached, clip)!)
-    if (collectionId === shownCollection.value) results.value = without(results.value, clip)
+    const cached = listCache.get(collectionId)
+    if (cached) listCache.set(collectionId, without(cached, clip)!)
+    if (collectionId === shownTab.value) results.value = without(results.value, clip)
   }
 
   const moveInCollection = (clip: Clip, target: Clip) => {
-    const id = shownCollection.value
-    const clips = id === null ? undefined : collectionCache.get(id)
-    if (id === null || !clips) return
+    const id = shownTab.value
+    const clips = typeof id === 'number' ? listCache.get(id) : undefined
+    if (typeof id !== 'number' || !clips) return
     const from = clips.findIndex(c => c.id === clip.id)
     const to = clips.findIndex(c => c.id === target.id)
     if (from < 0 || to < 0 || from === to) return
     const moved = [...clips]
     moved.splice(to, 0, ...moved.splice(from, 1))
-    collectionCache.set(id, moved)
+    listCache.set(id, moved)
   }
 
   const saveCollectionOrder = () => {
-    const id = shownCollection.value
-    const clips = id === null ? undefined : collectionCache.get(id)
-    if (id !== null && clips) invoke('reorder_collection', { collection: id, clips: clips.map(c => c.id) })
+    const id = shownTab.value
+    const clips = typeof id === 'number' ? listCache.get(id) : undefined
+    if (typeof id === 'number' && clips) invoke('reorder_collection', { collection: id, clips: clips.map(c => c.id) })
   }
 
   const toggleFavorite = async (clip: Clip) => {
@@ -191,20 +183,21 @@ export function useClips(
     const replace = (list: Clip[]) => list.map(c => (c.id === updated.id ? updated : c))
     history.value = replace(history.value)
     updateCache(replace)
+    const favorites = listCache.get('favorites')
+    if (favorites) listCache.set('favorites', updated.favorite ? [updated, ...without(favorites, updated)!] : without(favorites, updated)!)
     if (results.value) {
-      results.value = toValue(favoritesOnly) && !updated.favorite ? without(results.value, updated) : replace(results.value)
+      results.value = shownTab.value === 'favorites' && !updated.favorite ? without(results.value, updated) : replace(results.value)
     }
     return updated
   }
 
   const searching = computed(() => results.value !== null)
-  const loading = computed(() => toValue(collection) !== shownCollection.value)
+  const loading = computed(() => toValue(tab) !== shownTab.value)
 
   return {
-    clips,
     historyClips,
-    openCollectionClips,
-    shownCollection: readonly(shownCollection),
+    tabClips,
+    shownTab: readonly(shownTab),
     searching,
     loading,
     historyLoading,

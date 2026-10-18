@@ -91,6 +91,8 @@ const MIGRATIONS: &[&str] = &[
     // Refreshed for their favicon
     "ALTER TABLE link_previews ADD COLUMN icon TEXT;
      UPDATE link_previews SET fetched_at = 0;",
+    "ALTER TABLE clips ADD COLUMN favorited_at INTEGER;
+     UPDATE clips SET favorited_at = created_at WHERE favorite = 1;",
 ];
 
 fn migrate(conn: &mut Connection) -> rusqlite::Result<()> {
@@ -256,10 +258,12 @@ pub fn get(conn: &Connection, id: i64) -> rusqlite::Result<Clip> {
     conn.query_row(&format!("SELECT {COLUMNS} FROM clips WHERE id = ?1"), params![id], to_clip)
 }
 
-pub fn set_favorite(conn: &Connection, id: i64, favorite: bool) -> rusqlite::Result<Clip> {
+pub fn set_favorite(conn: &Connection, id: i64, favorite: bool, now: i64) -> rusqlite::Result<Clip> {
     conn.query_row(
-        &format!("UPDATE clips SET favorite = ?2 WHERE id = ?1 RETURNING {COLUMNS}"),
-        params![id, favorite],
+        &format!(
+            "UPDATE clips SET favorite = ?2, favorited_at = CASE WHEN ?2 THEN ?3 END WHERE id = ?1 RETURNING {COLUMNS}"
+        ),
+        params![id, favorite, now],
         to_clip,
     )
 }
@@ -304,30 +308,43 @@ pub fn delete(conn: &Connection, id: i64) -> rusqlite::Result<Vec<String>> {
     Ok(files)
 }
 
-pub fn list(conn: &Connection, limit: u32, collection: Option<i64>, favorites: bool) -> rusqlite::Result<Vec<Clip>> {
-    let (join, order) = collection_scope(collection);
-    let mut filters = Vec::new();
-    if collection.is_none() {
-        filters.push("in_history = 1");
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Scope {
+    History,
+    Favorites,
+    Collection(i64),
+}
+
+impl Scope {
+    pub fn new(collection: Option<i64>, favorites: bool) -> Self {
+        match (favorites, collection) {
+            (true, _) => Self::Favorites,
+            (false, Some(id)) => Self::Collection(id),
+            (false, None) => Self::History,
+        }
     }
-    if favorites {
-        filters.push("favorite = 1");
+
+    /// The id comes from SQLite, not from text.
+    fn sql(self) -> (String, Option<&'static str>, &'static str) {
+        match self {
+            Self::History => (String::new(), Some("in_history = 1"), "created_at DESC"),
+            Self::Favorites => (String::new(), Some("favorite = 1"), "favorited_at DESC, created_at DESC"),
+            Self::Collection(id) => (
+                format!("JOIN collection_clips ON clip_id = id AND collection_id = {id}"),
+                None,
+                "position, added_at DESC",
+            ),
+        }
     }
-    let filter = if filters.is_empty() { String::new() } else { format!("WHERE {}", filters.join(" AND ")) };
+}
+
+pub fn list(conn: &Connection, limit: u32, scope: Scope) -> rusqlite::Result<Vec<Clip>> {
+    let (join, filter, order) = scope.sql();
+    let filter = filter.map(|filter| format!("WHERE {filter}")).unwrap_or_default();
     let mut stmt =
         conn.prepare(&format!("SELECT {COLUMNS} FROM clips {join} {filter} ORDER BY {order} LIMIT {limit}"))?;
 
     stmt.query_map([], to_clip)?.collect()
-}
-
-/// The id comes from SQLite, not from text.
-fn collection_scope(collection: Option<i64>) -> (String, &'static str) {
-    match collection {
-        Some(id) => {
-            (format!("JOIN collection_clips ON clip_id = id AND collection_id = {id}"), "position, added_at DESC")
-        }
-        None => (String::new(), "created_at DESC"),
-    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -409,22 +426,16 @@ pub fn clip_collections(conn: &Connection, clip: i64) -> rusqlite::Result<Vec<i6
     stmt.query_map(params![clip], |row| row.get(0))?.collect()
 }
 
-pub fn search(
-    conn: &Connection,
-    query: &str,
-    limit: u32,
-    collection: Option<i64>,
-    favorites: bool,
-) -> rusqlite::Result<Vec<Clip>> {
+pub fn search(conn: &Connection, query: &str, limit: u32, scope: Scope) -> rusqlite::Result<Vec<Clip>> {
     let words: Vec<String> = query
         .split_whitespace()
         // Searched as is: `%` and `_` are not wildcards
         .map(|word| format!("%{}%", word.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_")))
         .collect();
     if words.is_empty() {
-        return list(conn, limit, collection, favorites);
+        return list(conn, limit, scope);
     }
-    let (join, order) = collection_scope(collection);
+    let (join, filter, order) = scope.sql();
 
     let mut conditions: Vec<String> = (1..=words.len())
         .map(|i| {
@@ -436,12 +447,7 @@ pub fn search(
             )
         })
         .collect();
-    if favorites {
-        conditions.push("favorite = 1".to_owned());
-    }
-    if collection.is_none() {
-        conditions.push("in_history = 1".to_owned());
-    }
+    conditions.extend(filter.map(str::to_owned));
     let mut stmt = conn.prepare(&format!(
         "SELECT {COLUMNS} FROM clips
          {join}
@@ -535,23 +541,23 @@ mod tests {
         let conn = memory();
         let first = text(&conn, "first", 1);
         let second = text(&conn, "second", 2);
-        assert_eq!(ids(&list(&conn, 10, None, false).unwrap()), [second.id, first.id]);
+        assert_eq!(ids(&list(&conn, 10, Scope::History).unwrap()), [second.id, first.id]);
 
         let again = text(&conn, "first", 3);
         assert_eq!(again.id, first.id);
-        assert_eq!(ids(&list(&conn, 10, None, false).unwrap()), [first.id, second.id]);
+        assert_eq!(ids(&list(&conn, 10, Scope::History).unwrap()), [first.id, second.id]);
     }
 
     #[test]
     fn dropped_clips_stay_out_of_the_history_until_copied() {
         let conn = memory();
         let dropped = save_dropped(&conn, NewClip::Text("dropped"), None, 1).unwrap();
-        assert!(list(&conn, 10, None, false).unwrap().is_empty());
+        assert!(list(&conn, 10, Scope::History).unwrap().is_empty());
         assert_eq!(count(&conn).unwrap(), 0);
 
         let copied = text(&conn, "dropped", 2);
         assert_eq!(copied.id, dropped.id);
-        assert_eq!(ids(&list(&conn, 10, None, false).unwrap()), [dropped.id]);
+        assert_eq!(ids(&list(&conn, 10, Scope::History).unwrap()), [dropped.id]);
     }
 
     #[test]
@@ -559,7 +565,7 @@ mod tests {
         let conn = memory();
         let copied = text(&conn, "copied", 1);
         save_dropped(&conn, NewClip::Text("copied"), None, 2).unwrap();
-        assert_eq!(ids(&list(&conn, 10, None, false).unwrap()), [copied.id]);
+        assert_eq!(ids(&list(&conn, 10, Scope::History).unwrap()), [copied.id]);
     }
 
     #[test]
@@ -571,7 +577,7 @@ mod tests {
         text(&conn, "recent", 100);
         let dropped = save_dropped(&conn, NewClip::Text("dropped"), None, 100).unwrap();
 
-        set_favorite(&conn, favorite.id, true).unwrap();
+        set_favorite(&conn, favorite.id, true, 1).unwrap();
         let collection = create_collection(&conn, "Work", 1).unwrap();
         add_to_collection(&conn, collection.id, collected.id, 1).unwrap();
 
@@ -636,13 +642,13 @@ mod tests {
         add_to_collection(&conn, collection.id, first.id, 1).unwrap();
         add_to_collection(&conn, collection.id, second.id, 2).unwrap();
         add_to_collection(&conn, collection.id, first.id, 3).unwrap();
-        assert_eq!(ids(&list(&conn, 10, Some(collection.id), false).unwrap()), [second.id, first.id]);
+        assert_eq!(ids(&list(&conn, 10, Scope::Collection(collection.id)).unwrap()), [second.id, first.id]);
 
         reorder_collection(&mut conn, collection.id, &[first.id, second.id]).unwrap();
-        assert_eq!(ids(&list(&conn, 10, Some(collection.id), false).unwrap()), [first.id, second.id]);
+        assert_eq!(ids(&list(&conn, 10, Scope::Collection(collection.id)).unwrap()), [first.id, second.id]);
 
         remove_from_collection(&conn, collection.id, first.id).unwrap();
-        assert_eq!(ids(&list(&conn, 10, Some(collection.id), false).unwrap()), [second.id]);
+        assert_eq!(ids(&list(&conn, 10, Scope::Collection(collection.id)).unwrap()), [second.id]);
         assert_eq!(clip_collections(&conn, second.id).unwrap(), [collection.id]);
     }
 
@@ -663,7 +669,7 @@ mod tests {
         let conn = memory();
         let both = text(&conn, "hello world", 1);
         text(&conn, "hello", 2);
-        assert_eq!(ids(&search(&conn, "  world   hello ", 10, None, false).unwrap()), [both.id]);
+        assert_eq!(ids(&search(&conn, "  world   hello ", 10, Scope::History).unwrap()), [both.id]);
     }
 
     #[test]
@@ -674,9 +680,9 @@ mod tests {
         let underscore = text(&conn, "snake_case", 3);
         text(&conn, "snakeXcase", 4);
         let backslash = text(&conn, "C:\\Users", 5);
-        assert_eq!(ids(&search(&conn, "100%", 10, None, false).unwrap()), [percent.id]);
-        assert_eq!(ids(&search(&conn, "e_c", 10, None, false).unwrap()), [underscore.id]);
-        assert_eq!(ids(&search(&conn, ":\\u", 10, None, false).unwrap()), [backslash.id]);
+        assert_eq!(ids(&search(&conn, "100%", 10, Scope::History).unwrap()), [percent.id]);
+        assert_eq!(ids(&search(&conn, "e_c", 10, Scope::History).unwrap()), [underscore.id]);
+        assert_eq!(ids(&search(&conn, ":\\u", 10, Scope::History).unwrap()), [backslash.id]);
     }
 
     #[test]
@@ -688,9 +694,9 @@ mod tests {
         let link = text(&conn, "https://example.com/", 3);
         save_link_preview(&conn, &preview("https://example.com/", Some("Example Domain"), None), 3).unwrap();
 
-        assert_eq!(ids(&search(&conn, "notepad", 10, None, false).unwrap()), [from_notepad.id]);
-        assert!(search(&conn, "deadbeef", 10, None, false).unwrap().is_empty());
-        assert_eq!(ids(&search(&conn, "domain", 10, None, false).unwrap()), [link.id]);
+        assert_eq!(ids(&search(&conn, "notepad", 10, Scope::History).unwrap()), [from_notepad.id]);
+        assert!(search(&conn, "deadbeef", 10, Scope::History).unwrap().is_empty());
+        assert_eq!(ids(&search(&conn, "domain", 10, Scope::History).unwrap()), [link.id]);
     }
 
     #[test]
@@ -698,16 +704,33 @@ mod tests {
         let conn = memory();
         let favorite = text(&conn, "apple pie", 1);
         text(&conn, "apple juice", 2);
-        set_favorite(&conn, favorite.id, true).unwrap();
+        set_favorite(&conn, favorite.id, true, 1).unwrap();
         let dropped = save_dropped(&conn, NewClip::Text("apple tree"), None, 3).unwrap();
         let collection = create_collection(&conn, "Fruits", 1).unwrap();
         add_to_collection(&conn, collection.id, dropped.id, 1).unwrap();
 
-        assert_eq!(ids(&search(&conn, "apple", 10, None, true).unwrap()), [favorite.id]);
-        assert_eq!(ids(&list(&conn, 10, None, true).unwrap()), [favorite.id]);
-        assert_eq!(search(&conn, "apple", 10, None, false).unwrap().len(), 2);
-        assert_eq!(search(&conn, "apple", 1, None, false).unwrap().len(), 1);
-        assert_eq!(ids(&search(&conn, "apple", 10, Some(collection.id), false).unwrap()), [dropped.id]);
+        assert_eq!(ids(&search(&conn, "apple", 10, Scope::Favorites).unwrap()), [favorite.id]);
+        assert_eq!(ids(&list(&conn, 10, Scope::Favorites).unwrap()), [favorite.id]);
+        assert_eq!(search(&conn, "apple", 10, Scope::History).unwrap().len(), 2);
+        assert_eq!(search(&conn, "apple", 1, Scope::History).unwrap().len(), 1);
+        assert_eq!(ids(&search(&conn, "apple", 10, Scope::Collection(collection.id)).unwrap()), [dropped.id]);
+    }
+
+    #[test]
+    fn favorites_come_latest_favorited_first_dropped_ones_included() {
+        let conn = memory();
+        let old = text(&conn, "old", 1);
+        let new = text(&conn, "new", 2);
+        let dropped = save_dropped(&conn, NewClip::Text("dropped"), None, 3).unwrap();
+        set_favorite(&conn, new.id, true, 10).unwrap();
+        set_favorite(&conn, dropped.id, true, 11).unwrap();
+        set_favorite(&conn, old.id, true, 12).unwrap();
+        assert_eq!(ids(&list(&conn, 10, Scope::Favorites).unwrap()), [old.id, dropped.id, new.id]);
+
+        set_favorite(&conn, dropped.id, false, 13).unwrap();
+        set_favorite(&conn, dropped.id, true, 14).unwrap();
+        assert_eq!(ids(&list(&conn, 10, Scope::Favorites).unwrap()), [dropped.id, old.id, new.id]);
+        assert_eq!(ids(&list(&conn, 10, Scope::History).unwrap()), [new.id, old.id]);
     }
 
     #[test]

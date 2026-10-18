@@ -18,7 +18,7 @@ use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
 use tauri::Manager;
 use window_vibrancy::apply_mica;
 
-use db::{Clip, Collection, Db};
+use db::{Clip, Collection, Db, Scope};
 use link_preview::LinkPreview;
 
 #[tauri::command]
@@ -28,7 +28,7 @@ fn list_clips(
     collection: Option<i64>,
     favorites: Option<bool>,
 ) -> Result<Vec<Clip>, String> {
-    db::list(&db.0.lock().unwrap(), limit.unwrap_or(500), collection, favorites.unwrap_or(false))
+    db::list(&db.0.lock().unwrap(), limit.unwrap_or(500), Scope::new(collection, favorites.unwrap_or(false)))
         .map_err(|e| e.to_string())
 }
 
@@ -40,13 +40,13 @@ fn search_clips(
     collection: Option<i64>,
     favorites: Option<bool>,
 ) -> Result<Vec<Clip>, String> {
-    db::search(&db.0.lock().unwrap(), &query, limit.unwrap_or(500), collection, favorites.unwrap_or(false))
-        .map_err(|e| e.to_string())
+    let scope = Scope::new(collection, favorites.unwrap_or(false));
+    db::search(&db.0.lock().unwrap(), &query, limit.unwrap_or(500), scope).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn set_favorite(db: tauri::State<Db>, id: i64, favorite: bool) -> Result<Clip, String> {
-    db::set_favorite(&db.0.lock().unwrap(), id, favorite).map_err(|e| e.to_string())
+    db::set_favorite(&db.0.lock().unwrap(), id, favorite, clipboard::now_ms()).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

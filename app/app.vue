@@ -3,7 +3,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { animate } from 'motion-v'
 
 const search = ref('')
-const collection = ref<number | null>(null)
+const tab = ref<Tab>('history')
 const layout = ref<'grid' | 'list'>('grid')
 // The clips wait for it, the history skeletons don't: they are in the prerendered page
 const layoutLoaded = ref(false)
@@ -14,11 +14,10 @@ onMounted(async () => {
   watch(layout, value => invoke('set_layout', { layout: value }))
 })
 
-const favoritesOnly = ref(false)
 const {
   historyClips,
-  openCollectionClips,
-  shownCollection,
+  tabClips,
+  shownTab,
   searching,
   loading,
   historyLoading,
@@ -31,23 +30,29 @@ const {
   moveInCollection,
   saveCollectionOrder,
   dropIntoCollection
-} = useClips(search, collection, favoritesOnly)
+} = useClips(search, tab)
 
-function emptyMessage(clips: readonly unknown[], inCollection: boolean) {
+function emptyMessage(clips: readonly unknown[], shown: Tab) {
   if (clips.length) return null
   const query = search.value.trim()
   if (searching.value && query) return `No results for “${query}”`
-  if (searching.value && favoritesOnly.value) return 'No favorites here yet. Click the star of a clip to add it.'
-  if (inCollection && !loading.value && !searching.value) return 'This collection is empty. Right-click a clip in History to add it here.'
+  if (loading.value || searching.value) return null
+  if (shown === 'favorites') return 'No favorites yet. Click the star of a clip to add it here.'
+  if (typeof shown === 'number') return 'This collection is empty. Right-click a clip in History to add it here.'
   return null
 }
-const isHistoryShown = computed(() => shownCollection.value === null)
+const isHistoryShown = computed(() => shownTab.value === 'history')
+const shownCollection = computed(() => (typeof shownTab.value === 'number' ? shownTab.value : null))
 
 const { collections } = useCollections()
-const tabIndex = (id: number | null) => (id === null ? 0 : collections.value.findIndex(c => c.id === id) + 1)
+function tabIndex(id: Tab) {
+  return id === 'favorites' ? 0 : id === 'history' ? 1 : collections.value.findIndex(c => c.id === id) + 2
+}
 const swipeForward = ref(true)
-watch(shownCollection, (shown, previous) => {
+const historySwipes = ref(true)
+watch(shownTab, (shown, previous) => {
   swipeForward.value = tabIndex(shown) >= tabIndex(previous)
+  historySwipes.value = shown === 'history' || previous === 'history'
 })
 const swipeTransition = { type: 'spring', bounce: 0, duration: 0.35 } as const
 function swipeIn(el: Element, done: () => void) {
@@ -56,7 +61,9 @@ function swipeIn(el: Element, done: () => void) {
 function swipeOut(el: Element, done: () => void) {
   animate(el, { x: swipeForward.value ? '-100%' : '100%' }, swipeTransition).then(done)
 }
-const historyAnimation = computed(() => ({ x: isHistoryShown.value ? 0 : '-100%' }))
+// History waits on the side of the shown tab, and jumps sides off-screen (Favorites is on its left)
+const historyAnimation = computed(() => ({ x: isHistoryShown.value ? 0 : shownTab.value === 'favorites' ? '100%' : '-100%' }))
+const historyTransition = computed(() => (historySwipes.value ? swipeTransition : { duration: 0 }))
 
 const detailsClip = ref<Clip | null>(null)
 const settingsOpen = ref(false)
@@ -166,14 +173,6 @@ useEventListener('dragleave', onDragLeave)
           spellcheck="false"
           @keydown.esc="onSearchEscape"
         />
-        <Tooltip :content="favoritesOnly ? 'Show all clips' : 'Show favorites only'">
-          <Button
-            :icon="favoritesOnly ? 'gravity-ui:star-fill' : 'gravity-ui:star'"
-            size="sm"
-            :pressed="favoritesOnly"
-            @click="favoritesOnly = !favoritesOnly"
-          />
-        </Tooltip>
         <Tooltip :content="layout === 'grid' ? 'Show as list' : 'Show as grid'">
           <Button
             :icon="layout === 'grid' ? 'gravity-ui:layout-cells-large' : 'gravity-ui:layout-list'"
@@ -186,14 +185,14 @@ useEventListener('dragleave', onDragLeave)
         </Tooltip>
       </TitleBar>
 
-      <CollectionTabs v-model="collection" @prefetch="prefetch" @drop-clip="onDropClip" />
+      <CollectionTabs v-model="tab" @prefetch="prefetch" @drop-clip="onDropClip" />
 
       <div class="relative flex min-h-0 flex-1 overflow-hidden">
         <ClipGrid
           :initial="false"
           :animate="historyAnimation"
           :inert="!isHistoryShown"
-          :transition="swipeTransition"
+          :transition="historyTransition"
           :clips="layoutLoaded ? historyClips : []"
           :collection="null"
           :layout="layout"
@@ -205,23 +204,23 @@ useEventListener('dragleave', onDragLeave)
           @add="addTo"
           @remove-from="removeFrom"
         >
-          <p v-if="emptyMessage(historyClips, false)" class="col-span-full py-16 text-center text-sm opacity-60">
-            {{ emptyMessage(historyClips, false) }}
+          <p v-if="emptyMessage(historyClips, 'history')" class="col-span-full py-16 text-center text-sm opacity-60">
+            {{ emptyMessage(historyClips, 'history') }}
           </p>
         </ClipGrid>
         <Transition :css="false" @enter="swipeIn" @leave="swipeOut">
           <!-- Motion stops the animations of its own element when it unmounts: the swipe moves this wrapper -->
           <div
-            v-if="layoutLoaded && shownCollection !== null"
-            :key="shownCollection"
+            v-if="layoutLoaded && !isHistoryShown"
+            :key="shownTab"
             class="absolute inset-0 transition-[filter] duration-200"
             :class="externalDrop && 'blur-sm [clip-path:inset(0.5rem_round_0.5rem)]'"
           >
             <ClipGrid
-              :clips="openCollectionClips"
+              :clips="tabClips"
               :collection="shownCollection"
               :layout="layout"
-              :reorderable="!searching"
+              :reorderable="!searching && shownCollection !== null"
               @info="detailsClip = $event"
               @move="moveInCollection"
               @move-end="saveCollectionOrder"
@@ -231,8 +230,8 @@ useEventListener('dragleave', onDragLeave)
               @add="addTo"
               @remove-from="removeFrom"
             >
-              <p v-if="emptyMessage(openCollectionClips, true)" class="col-span-full py-16 text-center text-sm opacity-60">
-                {{ emptyMessage(openCollectionClips, true) }}
+              <p v-if="emptyMessage(tabClips, shownTab)" class="col-span-full py-16 text-center text-sm opacity-60">
+                {{ emptyMessage(tabClips, shownTab) }}
               </p>
             </ClipGrid>
           </div>

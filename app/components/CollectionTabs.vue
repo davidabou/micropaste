@@ -1,13 +1,14 @@
 <script setup lang="ts">
+import type { Tab } from '@/composables/useClips'
 import type { Collection } from '@/composables/useCollections'
 import { animate } from 'motion-v'
 
 const emit = defineEmits<{
-  prefetch: [collection: number]
+  prefetch: [tab: Exclude<Tab, 'history'>]
   dropClip: [collection: number]
 }>()
 
-const selected = defineModel<number | null>({ default: null })
+const selected = defineModel<Tab>({ default: 'history' })
 
 const { collections, historyCount, create, rename, reorder, remove } = useCollections()
 
@@ -44,8 +45,8 @@ function onTileDrop(event: DragEvent, id: number) {
 const formatCount = (count: number) => count.toLocaleString('en-US')
 
 const tab = computed({
-  get: () => (selected.value === null ? 'history' : String(selected.value)),
-  set: (value: string) => (selected.value = value === 'history' ? null : Number(value))
+  get: () => String(selected.value),
+  set: (value: string) => (selected.value = value === 'history' || value === 'favorites' ? value : Number(value))
 })
 
 const menuOpenFor = ref<number | null>(null)
@@ -122,7 +123,7 @@ function onDeleteBubbleAnimated() {
   if (confirmingDelete.value === null) deleteBubbleFor.value = null
 }
 async function deleteCollection(id: number) {
-  if (selected.value === id) selected.value = null
+  if (selected.value === id) selected.value = 'history'
   await remove(id)
 }
 const textButton = 'cursor-pointer rounded-sm text-xs font-medium transition-opacity duration-100 hover:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current'
@@ -130,7 +131,9 @@ const tabLabelHidden = { opacity: 0, scale: 0.9, transition: { duration: 0.12 } 
 const tabLabelShown = { opacity: 1, scale: 1, transition: { duration: 0.15, delay: 0.15 } }
 
 // No overflow clipping on the tab itself (the name is truncated inside): the sliding pill would be cut
-const trigger = 'relative isolate flex h-8 items-center max-w-48 shrink-0 cursor-pointer rounded-md px-3 text-sm font-medium opacity-60 transition-opacity duration-100 hover:opacity-100 focus-visible:outline-2 focus-visible:outline-current data-[state=active]:opacity-100'
+const triggerBase = 'relative isolate flex h-8 items-center shrink-0 cursor-pointer rounded-md text-sm font-medium opacity-60 transition-opacity duration-100 hover:opacity-100 focus-visible:outline-2 focus-visible:outline-current data-[state=active]:opacity-100'
+const trigger = `${triggerBase} max-w-48 px-3`
+const iconTrigger = `${triggerBase} w-8 justify-center`
 
 const creating = computed(() => editing.value === 'new')
 const morph = { type: 'spring', bounce: 0.2, duration: 0.4 } as const
@@ -161,6 +164,12 @@ const tabSlide = { type: 'spring', bounce: 0.2, duration: 0.4 } as const
   <TabsRoot v-model="tab">
     <TabsList class="relative flex items-center gap-1 overflow-x-auto px-2 pb-1">
       <LayoutGroup>
+        <Tooltip content="Favorites">
+          <TabsTrigger value="favorites" aria-label="Favorites" :class="iconTrigger" @pointerenter="emit('prefetch', 'favorites')">
+            <Icon name="gravity-ui:star-fill" class="shrink-0 text-base" />
+            <TabPill v-if="tab === 'favorites'" />
+          </TabsTrigger>
+        </Tooltip>
         <TabsTrigger value="history" :class="trigger">
           <span class="flex min-w-0 items-baseline gap-1.5">
             <span class="min-w-0 truncate">History</span>
