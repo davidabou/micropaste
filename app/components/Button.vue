@@ -29,7 +29,7 @@ const sizes = {
 const classes = computed(() => {
   const size = sizes[props.size]
   return [
-    'inline-flex shrink-0 items-center justify-center rounded-md text-xs font-medium transition-colors duration-100',
+    'group inline-flex shrink-0 items-center justify-center rounded-md text-xs font-medium transition-colors duration-100',
     'focus-visible:outline-2 focus-visible:outline-current disabled:pointer-events-none disabled:opacity-40',
     variants[props.variant],
     size.base,
@@ -41,7 +41,7 @@ const classes = computed(() => {
 
 <template>
   <button :type="type" :class="classes" :aria-pressed="pressed">
-    <Icon v-if="icon" :name="icon" class="shrink-0 text-base" :class="pressed ? 'opacity-100' : 'opacity-60'" />
+    <Icon v-if="icon" :name="icon" class="shrink-0 text-base" :class="pressed ? 'opacity-100' : 'opacity-60 transition-opacity duration-100 group-hover:opacity-100'" />
     <slot />
   </button>
 </template>
