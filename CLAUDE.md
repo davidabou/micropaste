@@ -65,7 +65,7 @@ Local-first, fast, with a premium, native Windows 11 design (inspired by Supaste
 - External drop is only available in collections.
 - The Favorites tab holds every starred clip (dropped ones too), latest starred first, with no manual order: that's what collections are for.
 - Copies made from the window have "Micropaste" as their source.
-- Copying a single file of a group creates (or brings back) a clip of that file alone at the top of the history; the group itself never changes.
+- Copying a single file of a group creates (or brings back) a clip of that file alone at the top of the history; the group itself never changes. Same for a group with missing files: the clip of the files left goes to the top, not the group.
 - No "restore" detection: the app mirrors the real clipboard.
 
 ## Known pitfalls

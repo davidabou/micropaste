@@ -35,6 +35,7 @@ pub fn copy(app: &AppHandle, id: i64) -> Result<Option<PartialCopy>, String> {
     let clip = db::get(&db.0.lock().unwrap(), id).map_err(|e| e.to_string())?;
 
     let mut clipboard = Clipboard::new().map_err(|e| e.to_string())?;
+    let mut remaining_files = None;
     let partial = match clip.kind.as_str() {
         "image" => {
             let dir = images::dir(app).map_err(|e| e.to_string())?;
@@ -45,12 +46,17 @@ pub fn copy(app: &AppHandle, id: i64) -> Result<Option<PartialCopy>, String> {
         }
         "files" => {
             let total = clip.content.lines().count();
-            let paths: Vec<&Path> = clip.content.lines().map(Path::new).filter(|path| path.exists()).collect();
-            if paths.is_empty() {
+            let existing: Vec<&str> = clip.content.lines().filter(|path| Path::new(path).exists()).collect();
+            if existing.is_empty() {
                 return Err(crate::copy::files_not_found(&clip.content));
             }
+            let paths: Vec<&Path> = existing.iter().map(Path::new).collect();
             clipboard.set().file_list(&paths).map_err(|e| e.to_string())?;
-            (paths.len() < total).then_some(PartialCopy { copied: paths.len(), total })
+            let partial = existing.len() < total;
+            if partial {
+                remaining_files = Some(existing.join("\n"));
+            }
+            partial.then_some(PartialCopy { copied: existing.len(), total })
         }
         _ => {
             clipboard.set_text(&clip.content).map_err(|e| e.to_string())?;
@@ -59,7 +65,16 @@ pub fn copy(app: &AppHandle, id: i64) -> Result<Option<PartialCopy>, String> {
     };
     COPIED_SEQUENCE.store(clipboard_sequence(), Ordering::SeqCst);
 
-    let clip = db::touch(&db.0.lock().unwrap(), id, now_ms()).map_err(|e| e.to_string())?;
+    // Like copying one file of a group: the clipboard holds the files left, the group itself stays as it is
+    let clip = match remaining_files {
+        Some(paths) => {
+            let new_clip = NewClip::Files { paths: &paths, byte_size: total_size(&paths) };
+            let source = crate::source_app::micropaste();
+            db::save(&db.0.lock().unwrap(), new_clip, source.as_ref(), now_ms())
+        }
+        None => db::touch(&db.0.lock().unwrap(), id, now_ms()),
+    }
+    .map_err(|e| e.to_string())?;
     let _ = app.emit(CLIP_ADDED_EVENT, clip);
     Ok(partial)
 }
