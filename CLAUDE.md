@@ -42,10 +42,13 @@ Local-first, fast, with a premium, native Windows 11 design (inspired by Supaste
 | `db.rs` | SQLite; for any schema change, append a migration to the end of `MIGRATIONS` (never edit or reorder existing ones: `user_version` is how many have run) |
 | `history.rs` | Cleanup: unused for the retention set in the settings (30 days by default), except favorites and clips in collections; at startup then hourly, emits `clips-removed` |
 | `images.rs` | Images stored as PNG by hash in `$APPDATA/images` |
+| `save.rs` | Save as… for images and files: the save dialog runs in Rust (`tauri-plugin-dialog`), so the page never writes files; a group goes to a folder, `name (2).ext` on conflicts |
+| `media.rs` | GIFs, videos and audio files of a clip played in the details panel: `allow_media` checks the path belongs to the clip, then adds that one file to the asset protocol scope |
 | `drag_out.rs` | Native drag of images and files to other apps |
 | `drop.rs` | External drop into a collection (files via WebView2 `postMessageWithAdditionalObjects`, text, images) |
 | `source_app.rs` | Source app (foreground app) |
 | `link_preview.rs` | Link previews |
+| `ocr.rs` | Text in images and single image files (Windows OCR, user profile languages): one background worker, newest first, backfills at startup; `image_text` is `NULL` until done, `''` when there's no text; searched like the content, emits `image-text-recognized` |
 | `settings.rs` | Settings stored in the `settings` table: global shortcut, history retention, launch at startup, grid/list layout |
 | `background.rs` | Tray icon, close = hide, autostart, single-instance, `--hidden`, global shortcut (Alt+Shift+V by default), window placed in the bottom right corner at launch |
 | `window_icon.rs` | Sharp window icon at the right DPI |
@@ -53,9 +56,9 @@ Local-first, fast, with a premium, native Windows 11 design (inspired by Supaste
 
 ### Frontend (`app/`)
 
-- `app.vue`: tabs (Favorites, History, collections), History grid always mounted, Favorites and collection grids, search, grid/list layout, external drop.
-- `components/`: `ClipCard` (tile), `ClipGrid`, `ClipContextMenu`, `ClipDetails` (side panel), `SettingsPanel`, `ClipImage`, `AppIcon`, `CollectionTabs`, `TabPill`, `Tooltip`, `TitleBar`, `Button`, `Input`.
-- `composables/`: `useClips`, `useCollections`, `useTileDrag`, `useClipNotice` (shows a notice on a tile from anywhere), link and file previews, `usePrefersDark` (VueUse's `usePreferredDark`, shared by every tile).
+- `app.vue`: tabs (Favorites, History, collections), History grid always mounted, Favorites and collection grids, search, type and source filters, grid/list layout, external drop.
+- `components/`: `ClipCard` (tile), `ClipGrid`, `ClipContextMenu`, `ClipDetails` (side panel), `ClipFilters` (type Select and source app Combobox: the type rules match `copiedLink` and `copiedColor`, in SQL in `db.rs`), `SettingsPanel`, `ClipImage`, `MediaPlayer` (audio and video of the details panel, VueUse's `useMediaControls`: Chromium's native controls stay clipped when created during an animation), `AppIcon`, `CollectionTabs`, `TabPill`, `Tooltip`, `TitleBar`, `Button`, `Input`.
+- `composables/`: `useClips`, `useCollections`, `useTileDrag`, `useClipNotice` (shows a notice on a tile from anywhere), link and file previews, `useImageText` (text recognized in an image), `usePrefersDark` (VueUse's `usePreferredDark`, shared by every tile).
 - `assets/css/main.css`: global styles, including the `.skeleton` class for content still loading.
 - `utils/`: colors, SVG, links, files, bytes, `timeAgo.ts` (compact format for VueUse's `useTimeAgo`), `menu.ts` (shared menu animation).
 
@@ -65,6 +68,7 @@ Local-first, fast, with a premium, native Windows 11 design (inspired by Supaste
 - External drop is only available in collections.
 - The Favorites tab holds every starred clip (dropped ones too), latest starred first, with no manual order: that's what collections are for.
 - Copies made from the window have "Micropaste" as their source.
+- Copy text on an image creates (or brings back) a text clip of it, source Micropaste, at the top of the history; the image clip itself never changes.
 - Copying a single file of a group creates (or brings back) a clip of that file alone at the top of the history; the group itself never changes. Same for a group with missing files: the clip of the files left goes to the top, not the group.
 - No "restore" detection: the app mirrors the real clipboard.
 

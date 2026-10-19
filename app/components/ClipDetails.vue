@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Clip, PartialCopy } from '@/composables/useClips'
-import { invoke } from '@tauri-apps/api/core'
+import { convertFileSrc, invoke } from '@tauri-apps/api/core'
+import { openUrl } from '@tauri-apps/plugin-opener'
 import { animate } from 'motion-v'
 import { copiedText } from '@/composables/useClips'
 
@@ -26,6 +27,7 @@ const color = computed(() => (text.value ? copiedColor(text.value) : null))
 const svgSrc = computed(() => (text.value ? svgToDataUrl(text.value, prefersDark.value ? '#fff' : '#000') : null))
 const link = computed(() => (text.value ? copiedLink(text.value) : null))
 const linkPreview = useLinkPreview(link, open)
+const { text: imageText } = useImageText(shown, open)
 const files = computed(() => (shown.value?.kind === 'files' ? shown.value.content.split('\n') : null))
 const isGroup = computed(() => (files.value?.length ?? 0) > 1)
 const commonFolder = computed(() => {
@@ -51,8 +53,34 @@ watch(() => shown.value?.id, () => (slide.value = 0))
 const slidePath = computed(() => files.value?.[slide.value] ?? null)
 const slideMissing = computed(() => !!slidePath.value && missing.value.has(slidePath.value))
 // Reloaded when a missing file comes back
-const filePreview = useFilePreview(() => existing(slidePath.value), open)
-useFilePreview(() => (isGroup.value ? existing(files.value![(slide.value + 1) % files.value!.length]) : null), open)
+const filePreview = useFilePreview(() => existing(slidePath.value), open, true)
+useFilePreview(() => (isGroup.value ? existing(files.value![(slide.value + 1) % files.value!.length]) : null), open, true)
+
+type MediaKind = 'animation' | 'video' | 'audio'
+const media = ref<{ path: string, kind: MediaKind, src: string } | null>(null)
+// Only changes once the new slide's kind is known: the dots don't jump while it loads
+const playable = ref(false)
+const isPlayable = (kind: MediaKind | null | undefined) => kind === 'video'
+watch([() => shown.value?.id, () => existing(slidePath.value), open], async ([id, path, isOpen]) => {
+  if (!path) playable.value = false
+  if (!id || !path || !isOpen) return
+  if (media.value?.path === path) return (playable.value = isPlayable(media.value.kind))
+  const kind = await invoke<MediaKind | null>('allow_media', { id, path }).catch(() => null)
+  if (shown.value?.id !== id || slidePath.value !== path) return
+  playable.value = isPlayable(kind)
+  if (kind) media.value = { path, kind, src: convertFileSrc(path) }
+}, { immediate: true })
+const slideMedia = computed(() => (media.value && media.value.path === existing(slidePath.value) ? media.value : null))
+const failedMedia = ref(new Set<string>())
+function mediaFailed() {
+  if (media.value) failedMedia.value = new Set(failedMedia.value).add(media.value.path)
+  media.value = null
+  playable.value = false
+}
+// Laid out from the preview, before the file is allowed: no jump once it's playable
+const audioShown = computed(() =>
+  filePreview.value?.media === 'audio' && !!slidePath.value && !slideMissing.value && !failedMedia.value.has(slidePath.value)
+)
 let slideForward = true
 function go(step: number) {
   if (!files.value || !isGroup.value) return
@@ -97,7 +125,7 @@ function slideOut(el: Element, done: () => void) {
 const type = computed(() => {
   if (!shown.value) return ''
   if (shown.value.kind === 'image') return 'Image'
-  if (files.value) return isGroup.value ? `${files.value.length} files` : (filePreview.value?.typeName ?? 'File')
+  if (files.value) return isGroup.value ? 'Files' : (filePreview.value?.typeName ?? 'File')
   if (color.value) return 'Color'
   if (svgSrc.value) return 'SVG'
   if (link.value) return 'Link'
@@ -105,9 +133,14 @@ const type = computed(() => {
 })
 const title = computed(() => {
   if (linkPreview.value?.title) return linkPreview.value.title
-  if (files.value) return isGroup.value ? `${files.value.length} files` : fileName(files.value[0]!)
+  if (files.value) return files.value.map(fileName).join(', ')
   if (color.value) return color.value.value
   return type.value
+})
+const dimensions = computed(() => {
+  if (shown.value?.width && shown.value.height) return { width: shown.value.width, height: shown.value.height }
+  const preview = filePreview.value
+  return files.value && !isGroup.value && preview?.width && preview.height ? { width: preview.width, height: preview.height } : null
 })
 const textStats = computed(() => {
   if (!text.value || color.value || link.value) return null
@@ -145,6 +178,15 @@ async function copy() {
   clearCopyLabelLater()
 }
 
+const openLinkError = ref<string | null>(null)
+const { start: clearOpenLinkErrorLater } = useTimeoutFn(() => (openLinkError.value = null), 1800, { immediate: false })
+async function openLink(url: string) {
+  await openUrl(url).catch(() => {
+    openLinkError.value = 'Couldn’t open the link'
+    clearOpenLinkErrorLater()
+  })
+}
+
 const revealError = ref<string | null>(null)
 const { start: clearRevealErrorLater } = useTimeoutFn(() => (revealError.value = null), 1800, { immediate: false })
 async function revealFile(path: string) {
@@ -175,6 +217,17 @@ function fileCopyIcon(path: string) {
   if (fileCopy.value?.path !== path) return 'gravity-ui:copy'
   return fileCopy.value.failed ? 'gravity-ui:circle-xmark' : 'gravity-ui:check'
 }
+
+const textCopy = ref<{ label: string, failed: boolean } | null>(null)
+const { start: clearTextCopyLater } = useTimeoutFn(() => (textCopy.value = null), () => (textCopy.value?.failed ? 1800 : 1200), { immediate: false })
+async function copyImageText() {
+  if (!shown.value) return
+  await invoke('copy_image_text', { id: shown.value.id })
+    .then(() => (textCopy.value = { label: 'Copied', failed: false }))
+    .catch(error => (textCopy.value = { label: typeof error === 'string' ? error : 'Couldn’t copy', failed: true }))
+  clearTextCopyLater()
+}
+watch(() => shown.value?.id, () => (textCopy.value = null))
 
 async function dragFile(event: DragEvent, path: string) {
   event.preventDefault()
@@ -245,7 +298,7 @@ const carouselButton = 'absolute top-1/2 flex size-7 -translate-y-1/2 cursor-poi
 
           <div class="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
             <div
-              v-if="shown.kind === 'image' || linkPreview?.image || color || svgSrc || files"
+              v-if="shown.kind === 'image' || link || color || svgSrc || files"
               class="mb-4 flex h-48 items-center justify-center overflow-hidden rounded-lg bg-black/[3.73%] dark:bg-white/[6.05%]"
             >
               <ClipImage v-if="shown.kind === 'image'" :file="`${shown.content}.png`" class="size-full object-contain" />
@@ -257,11 +310,44 @@ const carouselButton = 'absolute top-1/2 flex size-7 -translate-y-1/2 cursor-poi
                 <div class="size-full" :style="{ background: color.css }" />
               </div>
               <img v-else-if="svgSrc" :src="svgSrc" alt="" class="size-32 object-contain">
+              <div v-else-if="link" class="flex min-w-0 flex-col items-center gap-3 px-4">
+                <div class="flex size-16 items-center justify-center rounded-2xl bg-white shadow-sm dark:bg-white/[8.37%]">
+                  <ClipImage v-if="linkPreview?.icon" :file="linkPreview.icon" class="size-9 object-contain" />
+                  <Icon v-else name="gravity-ui:globe" class="text-[32px] opacity-40" />
+                </div>
+                <span class="max-w-full truncate opacity-60">{{ linkDomain(link) }}</span>
+              </div>
               <div v-else-if="files" class="group/carousel relative size-full">
                 <Transition :css="false" @enter="slideIn" @leave="slideOut">
-                  <div :key="slidePath ?? ''" class="absolute inset-0 flex items-center justify-center">
+                  <div
+                    :key="slidePath ?? ''"
+                    class="absolute inset-0 flex items-center justify-center"
+                  >
                     <img
-                      v-if="filePreview?.image"
+                      v-if="slideMedia?.kind === 'animation'"
+                      :src="slideMedia.src"
+                      alt=""
+                      class="size-full object-contain"
+                      @error="mediaFailed"
+                    >
+                    <MediaPlayer
+                      v-else-if="slideMedia?.kind === 'video'"
+                      video
+                      :src="slideMedia.src"
+                      :poster="filePreview?.image"
+                      class="size-full"
+                      @error="mediaFailed"
+                    />
+                    <MediaPlayer
+                      v-else-if="audioShown"
+                      :src="slideMedia?.kind === 'audio' ? slideMedia.src : null"
+                      :poster="filePreview?.thumbnail ? filePreview.image : null"
+                      class="size-full"
+                      :class="isGroup ? 'px-11' : 'px-5'"
+                      @error="mediaFailed"
+                    />
+                    <img
+                      v-else-if="filePreview?.image"
                       :src="filePreview.image"
                       alt=""
                       :class="filePreview.thumbnail ? 'size-full object-contain' : 'size-20 object-contain'"
@@ -277,7 +363,8 @@ const carouselButton = 'absolute top-1/2 flex size-7 -translate-y-1/2 cursor-poi
                     <Icon name="gravity-ui:chevron-right" class="text-sm" />
                   </button>
                   <div
-                    class="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-white/80 px-1.5 py-1 opacity-0 transition-opacity duration-150 group-hover/carousel:opacity-100 has-focus-visible:opacity-100 dark:bg-black/60"
+                    class="absolute left-1/2 -translate-x-1/2 rounded-full bg-white/80 px-1.5 py-1 opacity-0 transition-opacity duration-150 group-hover/carousel:opacity-100 has-focus-visible:opacity-100 dark:bg-black/60"
+                    :class="playable ? 'top-2' : 'bottom-2'"
                   >
                     <div class="overflow-hidden" :style="{ width: `${dotsWidth}px` }">
                       <Motion
@@ -325,19 +412,19 @@ const carouselButton = 'absolute top-1/2 flex size-7 -translate-y-1/2 cursor-poi
                 <dd>{{ type }}</dd>
               </div>
               <div class="flex justify-between gap-4">
-                <dt :class="label">Copied from</dt>
+                <dt :class="label">Source</dt>
                 <dd class="flex min-w-0 items-center gap-1.5">
                   <AppIcon :path="shown.sourceAppPath" />
                   <span class="truncate">{{ shown.sourceAppName ?? 'Unknown app' }}</span>
                 </dd>
               </div>
               <div class="flex justify-between gap-4">
-                <dt :class="label">Last copied</dt>
+                <dt :class="label">Copied</dt>
                 <dd class="text-right">{{ lastCopied }}</dd>
               </div>
-              <div v-if="shown.width && shown.height" class="flex justify-between gap-4">
+              <div v-if="dimensions" class="flex justify-between gap-4">
                 <dt :class="label">Dimensions</dt>
-                <dd>{{ shown.width }} × {{ shown.height }}</dd>
+                <dd>{{ dimensions.width }} × {{ dimensions.height }}</dd>
               </div>
               <div v-if="shown.byteSize" class="flex justify-between gap-4">
                 <dt :class="label">Size</dt>
@@ -349,7 +436,18 @@ const carouselButton = 'absolute top-1/2 flex size-7 -translate-y-1/2 cursor-poi
               </div>
               <div v-if="link" class="flex justify-between gap-4">
                 <dt :class="label">Website</dt>
-                <dd class="truncate">{{ linkDomain(link) }}</dd>
+                <dd class="flex min-w-0">
+                  <Tooltip :content="openLinkError ?? 'Open in browser'">
+                    <button
+                      type="button"
+                      class="-mx-1.5 -my-0.5 flex min-w-0 cursor-pointer items-center gap-1.5 rounded-md px-1.5 py-0.5 transition-colors duration-100 hover:bg-black/[3.73%] focus-visible:outline-2 focus-visible:outline-current dark:hover:bg-white/[6.05%]"
+                      @click="openLink(link)"
+                    >
+                      <span class="truncate">{{ linkDomain(link) }}</span>
+                      <Icon name="gravity-ui:arrow-up-right-from-square" class="shrink-0 text-sm opacity-60" />
+                    </button>
+                  </Tooltip>
+                </dd>
               </div>
               <template v-if="textStats">
                 <div class="flex justify-between gap-4">
@@ -442,6 +540,13 @@ const carouselButton = 'absolute top-1/2 flex size-7 -translate-y-1/2 cursor-poi
                 </Motion>
               </AnimatePresence>
             </Button>
+            <Tooltip v-if="imageText" :content="textCopy?.label ?? 'Copy text'">
+              <Button
+                :icon="textCopy ? (textCopy.failed ? 'gravity-ui:circle-xmark' : 'gravity-ui:check') : 'gravity-ui:text'"
+                aria-label="Copy text"
+                @click="copyImageText"
+              />
+            </Tooltip>
             <Tooltip :content="shown.favorite ? 'Remove from favorites' : 'Add to favorites'">
               <Button
                 :icon="shown.favorite ? 'gravity-ui:star-fill' : 'gravity-ui:star'"

@@ -8,6 +8,9 @@ mod drop;
 mod history;
 mod images;
 mod link_preview;
+mod media;
+mod ocr;
+mod save;
 mod settings;
 mod source_app;
 mod window_icon;
@@ -18,7 +21,7 @@ use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
 use tauri::Manager;
 use window_vibrancy::apply_mica;
 
-use db::{Clip, Collection, Db, Scope};
+use db::{Clip, Collection, Db, Filter, Scope, Source};
 use link_preview::LinkPreview;
 
 #[tauri::command]
@@ -28,8 +31,8 @@ fn list_clips(
     collection: Option<i64>,
     favorites: Option<bool>,
 ) -> Result<Vec<Clip>, String> {
-    db::list(&db.0.lock().unwrap(), limit.unwrap_or(500), Scope::new(collection, favorites.unwrap_or(false)))
-        .map_err(|e| e.to_string())
+    let scope = Scope::new(collection, favorites.unwrap_or(false));
+    db::list(&db.0.lock().unwrap(), limit.unwrap_or(500), scope, &Filter::default()).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -39,9 +42,16 @@ fn search_clips(
     limit: Option<u32>,
     collection: Option<i64>,
     favorites: Option<bool>,
+    filter: Option<Filter>,
 ) -> Result<Vec<Clip>, String> {
     let scope = Scope::new(collection, favorites.unwrap_or(false));
-    db::search(&db.0.lock().unwrap(), &query, limit.unwrap_or(500), scope).map_err(|e| e.to_string())
+    db::search(&db.0.lock().unwrap(), &query, limit.unwrap_or(500), scope, &filter.unwrap_or_default())
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn list_sources(db: tauri::State<Db>, collection: Option<i64>, favorites: Option<bool>) -> Result<Vec<Source>, String> {
+    db::sources(&db.0.lock().unwrap(), Scope::new(collection, favorites.unwrap_or(false))).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -140,23 +150,40 @@ struct FilePreview {
     image: Option<String>,
     thumbnail: bool,
     type_name: Option<String>,
+    width: Option<u32>,
+    height: Option<u32>,
+    media: Option<media::MediaKind>,
 }
 
 #[tauri::command]
-async fn get_file_preview(db: tauri::State<'_, Db>, path: String) -> Result<FilePreview, String> {
+async fn get_file_preview(db: tauri::State<'_, Db>, path: String, large: Option<bool>) -> Result<FilePreview, String> {
     // Only preview files that were copied, not arbitrary paths
     if !db::is_copied_file(&db.0.lock().unwrap(), &path).map_err(|e| e.to_string())? {
         return Err("Not a copied file".into());
     }
-    let (preview, type_name) = tauri::async_runtime::spawn_blocking(move || {
-        let preview = app_icon::file_preview_png(&path, app_icon::THUMBNAIL_SIZE, app_icon::FILE_ICON_SIZE);
-        (preview, app_icon::file_type_name(&path))
+    let media = media::kind(std::path::Path::new(&path));
+    let (size, icon_size) = if large.unwrap_or(false) {
+        (app_icon::LARGE_THUMBNAIL_SIZE, app_icon::LARGE_FILE_ICON_SIZE)
+    } else {
+        (app_icon::THUMBNAIL_SIZE, app_icon::FILE_ICON_SIZE)
+    };
+    let (preview, type_name, dimensions) = tauri::async_runtime::spawn_blocking(move || {
+        let preview = app_icon::file_preview_png(&path, size, icon_size);
+        (preview, app_icon::file_type_name(&path), images::file_dimensions(std::path::Path::new(&path)))
     })
     .await
     .map_err(|e| e.to_string())?;
-    Ok(match preview {
-        Some((png, thumbnail)) => FilePreview { image: Some(png_data_url(&png)), thumbnail, type_name },
-        None => FilePreview { image: None, thumbnail: false, type_name },
+    let (image, thumbnail) = match preview {
+        Some((png, thumbnail)) => (Some(png_data_url(&png)), thumbnail),
+        None => (None, false),
+    };
+    Ok(FilePreview {
+        image,
+        thumbnail,
+        type_name,
+        width: dimensions.map(|(width, _)| width),
+        height: dimensions.map(|(_, height)| height),
+        media,
     })
 }
 
@@ -176,8 +203,28 @@ async fn missing_files(db: tauri::State<'_, Db>, id: i64) -> Result<Vec<String>,
 }
 
 #[tauri::command]
+fn allow_media(app: tauri::AppHandle, id: i64, path: String) -> Result<Option<media::MediaKind>, String> {
+    media::allow(&app, id, &path)
+}
+
+#[tauri::command]
 async fn copy_file(app: tauri::AppHandle, id: i64, path: String) -> Result<(), String> {
     copy::copy_file(&app, id, &path)
+}
+
+#[tauri::command]
+fn get_image_text(db: tauri::State<Db>, id: i64) -> Result<Option<String>, String> {
+    db::image_text(&db.0.lock().unwrap(), id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn copy_image_text(app: tauri::AppHandle, id: i64) -> Result<(), String> {
+    copy::copy_image_text(&app, id)
+}
+
+#[tauri::command]
+async fn save_clip_as(app: tauri::AppHandle, window: tauri::Window, id: i64) -> Result<Option<save::Saved>, String> {
+    save::save_as(&app, &window, id)
 }
 
 #[tauri::command]
@@ -359,6 +406,7 @@ pub fn run() {
             }
             app.manage(Db(Mutex::new(conn)));
 
+            ocr::start(app.handle().clone());
             clipboard::start_watcher(app.handle().clone());
             history::start_cleanup(app.handle().clone());
             background::setup(app)?;
@@ -373,9 +421,11 @@ pub fn run() {
         ))
         .plugin(background::shortcut_plugin())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             list_clips,
             search_clips,
+            list_sources,
             count_clips,
             set_favorite,
             list_collections,
@@ -390,10 +440,14 @@ pub fn run() {
             get_app_icon,
             copy_clip,
             copy_file,
+            get_image_text,
+            copy_image_text,
             delete_clip,
             get_file_preview,
             reveal_file,
             missing_files,
+            allow_media,
+            save_clip_as,
             start_drag,
             start_file_drag,
             drop_text,

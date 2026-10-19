@@ -16,7 +16,11 @@ pub fn extract_png(_path: &str) -> Option<Vec<u8>> {
 }
 
 pub const THUMBNAIL_SIZE: u32 = 384;
+/// For the details panel, sharp at high display scales.
+pub const LARGE_THUMBNAIL_SIZE: u32 = 768;
 pub const FILE_ICON_SIZE: u32 = 96;
+/// The largest size icons come in.
+pub const LARGE_FILE_ICON_SIZE: u32 = 256;
 
 #[cfg(windows)]
 pub fn file_preview_png(path: &str, thumbnail_size: u32, icon_size: u32) -> Option<(Vec<u8>, bool)> {
