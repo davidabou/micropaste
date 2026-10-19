@@ -4,6 +4,7 @@ import { animate } from 'motion-v'
 
 const search = ref('')
 const tab = ref<Tab>('history')
+const filter = ref<ClipFilter>({ kind: null, source: null })
 const layout = ref<'grid' | 'list'>('grid')
 // The clips wait for it, the history skeletons don't: they are in the prerendered page
 const layoutLoaded = ref(false)
@@ -30,16 +31,24 @@ const {
   moveInCollection,
   saveCollectionOrder,
   dropIntoCollection
-} = useClips(search, tab)
+} = useClips(search, tab, filter)
 
 function emptyMessage(clips: readonly unknown[], shown: Tab) {
   if (clips.length) return null
   const query = search.value.trim()
-  if (searching.value && query) return `No results for “${query}”`
+  if (searching.value) return query ? `No results for “${query}”` : 'No clips match these filters'
   if (loading.value || searching.value) return null
   if (shown === 'favorites') return 'No favorites yet. Click the star of a clip to add it here.'
   if (typeof shown === 'number') return 'This collection is empty. Right-click a clip in History to add it here.'
   return null
+}
+// Out of the grid flow: tiles leaving still take their place for the time of their exit.
+// Faded in once they're gone, but not when the grid shows up with it
+const emptyClass = 'absolute inset-x-0 top-2 py-16 text-center text-sm'
+const emptyFade = {
+  initial: { opacity: 0 },
+  animate: { opacity: 0.6, transition: { delay: 0.15, duration: 0.2 } },
+  exit: { opacity: 0, transition: { duration: 0 } }
 }
 const isHistoryShown = computed(() => shownTab.value === 'history')
 const shownCollection = computed(() => (typeof shownTab.value === 'number' ? shownTab.value : null))
@@ -164,25 +173,32 @@ useEventListener('dragleave', onDragLeave)
   <TooltipProvider :delay-duration="500" disable-hoverable-content>
     <div class="flex h-screen flex-col">
       <TitleBar>
-        <Input
-          ref="searchInput"
-          v-model="search"
-          class="w-60"
-          icon="gravity-ui:magnifier"
-          placeholder="Search…"
-          spellcheck="false"
-          @keydown.esc="onSearchEscape"
-        />
-        <Tooltip :content="layout === 'grid' ? 'Show as list' : 'Show as grid'">
-          <Button
-            :icon="layout === 'grid' ? 'gravity-ui:layout-cells-large' : 'gravity-ui:layout-list'"
-            size="sm"
-            @click="layout = layout === 'grid' ? 'list' : 'grid'"
-          />
-        </Tooltip>
-        <Tooltip content="Settings">
-          <Button icon="gravity-ui:gear" size="sm" @click="settingsOpen = true" />
-        </Tooltip>
+        <div class="flex min-w-0 flex-1 items-center gap-1.5" data-tauri-drag-region>
+          <div class="flex h-8 max-w-96 min-w-0 flex-1 items-center rounded-md border border-black/[5.78%] bg-black/[3.73%] dark:border-white/6 dark:bg-white/[6.05%]">
+            <Input
+              ref="searchInput"
+              v-model="search"
+              class="ml-1 min-w-0 flex-1"
+              icon="gravity-ui:magnifier"
+              placeholder="Search…"
+              spellcheck="false"
+              @keydown.esc="onSearchEscape"
+            />
+          </div>
+          <ClipFilters v-model="filter" :tab="tab" />
+        </div>
+        <div class="flex gap-2">
+          <Tooltip :content="layout === 'grid' ? 'Show as list' : 'Show as grid'">
+            <Button
+              :icon="layout === 'grid' ? 'gravity-ui:layout-cells-large' : 'gravity-ui:layout-list'"
+              size="sm"
+              @click="layout = layout === 'grid' ? 'list' : 'grid'"
+            />
+          </Tooltip>
+          <Tooltip content="Settings">
+            <Button icon="gravity-ui:gear" size="sm" @click="settingsOpen = true" />
+          </Tooltip>
+        </div>
       </TitleBar>
 
       <CollectionTabs v-model="tab" @prefetch="prefetch" @drop-clip="onDropClip" />
@@ -204,9 +220,11 @@ useEventListener('dragleave', onDragLeave)
           @add="addTo"
           @remove-from="removeFrom"
         >
-          <p v-if="emptyMessage(historyClips, 'history')" class="col-span-full py-16 text-center text-sm opacity-60">
-            {{ emptyMessage(historyClips, 'history') }}
-          </p>
+          <AnimatePresence :initial="false">
+            <Motion v-if="emptyMessage(historyClips, 'history')" as="p" :class="emptyClass" v-bind="emptyFade">
+              {{ emptyMessage(historyClips, 'history') }}
+            </Motion>
+          </AnimatePresence>
         </ClipGrid>
         <Transition :css="false" @enter="swipeIn" @leave="swipeOut">
           <!-- Motion stops the animations of its own element when it unmounts: the swipe moves this wrapper -->
@@ -230,9 +248,11 @@ useEventListener('dragleave', onDragLeave)
               @add="addTo"
               @remove-from="removeFrom"
             >
-              <p v-if="emptyMessage(tabClips, shownTab)" class="col-span-full py-16 text-center text-sm opacity-60">
-                {{ emptyMessage(tabClips, shownTab) }}
-              </p>
+              <AnimatePresence :initial="false">
+                <Motion v-if="emptyMessage(tabClips, shownTab)" as="p" :class="emptyClass" v-bind="emptyFade">
+                  {{ emptyMessage(tabClips, shownTab) }}
+                </Motion>
+              </AnimatePresence>
             </ClipGrid>
           </div>
         </Transition>

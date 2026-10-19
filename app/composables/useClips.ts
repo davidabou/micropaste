@@ -23,15 +23,26 @@ export interface PartialCopy {
 export type Tab = 'history' | 'favorites' | number
 type ListTab = Exclude<Tab, 'history'>
 
+export type ClipKind = 'text' | 'link' | 'color' | 'image' | 'files'
+
+export interface ClipFilter {
+  kind: ClipKind | null
+  source: string | null
+}
+
 export function copiedText(partial: PartialCopy | null) {
   return partial ? `Copied (${partial.copied}/${partial.total})` : 'Copied'
 }
 
 const SEARCH_DELAY_MS = 120
 
-const scopeOf = (tab: Tab) => (tab === 'history' ? {} : tab === 'favorites' ? { favorites: true } : { collection: tab })
+export const scopeOf = (tab: Tab) => (tab === 'history' ? {} : tab === 'favorites' ? { favorites: true } : { collection: tab })
 
-export function useClips(query: MaybeRefOrGetter<string> = '', tab: MaybeRefOrGetter<Tab> = 'history') {
+export function useClips(
+  query: MaybeRefOrGetter<string> = '',
+  tab: MaybeRefOrGetter<Tab> = 'history',
+  filter: MaybeRefOrGetter<ClipFilter> = { kind: null, source: null }
+) {
   const history = ref<Clip[]>([])
   const historyLoading = ref(true)
   const { refresh: refreshCounts } = useCollections()
@@ -41,28 +52,45 @@ export function useClips(query: MaybeRefOrGetter<string> = '', tab: MaybeRefOrGe
   const updateCache = (change: (clips: Clip[]) => Clip[]) => {
     for (const [id, clips] of listCache) listCache.set(id, change(clips))
   }
+  // History stays mounted beside the other tabs: its results are kept up to date apart
+  const historyResults = ref<Clip[] | null>(null)
   const results = ref<Clip[] | null>(null)
-  const historyClips = computed(() => (shownTab.value === 'history' && results.value) || history.value)
+  const historyClips = computed(() => historyResults.value ?? history.value)
   const tabClips = computed(() => (shownTab.value === 'history' ? [] : results.value ?? cachedClips.value ?? []))
   const unlisteners: UnlistenFn[] = []
 
+  const searchIn = (shown: Tab) =>
+    invoke<Clip[]>('search_clips', { query: toValue(query).trim(), ...scopeOf(shown), filter: toValue(filter) })
+  const filtering = () => {
+    const { kind, source } = toValue(filter)
+    return toValue(query).trim() !== '' || kind !== null || source !== null
+  }
+
   let searchId = 0
-  const { start: searchLater, stop: cancelSearch } = useTimeoutFn(async (current: string) => {
+  const runSearch = async () => {
     const id = ++searchId
-    const found = await invoke<Clip[]>('search_clips', { query: current, ...scopeOf(toValue(tab)) })
-    if (id === searchId) results.value = found
-  }, SEARCH_DELAY_MS, { immediate: false })
-  const search = () => {
+    const current = toValue(tab)
+    const [inHistory, found] = await Promise.all([searchIn('history'), current === 'history' ? null : searchIn(current)])
+    if (id !== searchId) return
+    historyResults.value = inHistory
+    // Left meanwhile: the new tab loads its own results
+    if (toValue(tab) === current) results.value = found
+  }
+  const { start: searchLater, stop: cancelSearch } = useTimeoutFn(runSearch, SEARCH_DELAY_MS, { immediate: false })
+  // The delay spares a search per typed letter: a filter is picked in one go
+  const search = (now = false) => {
     cancelSearch()
-    const current = toValue(query).trim()
-    if (!current) {
+    if (!filtering()) {
       searchId++
+      historyResults.value = null
       results.value = null
       return
     }
-    searchLater(current)
+    if (now) runSearch()
+    else searchLater()
   }
-  watch(() => toValue(query), search)
+  watch(() => toValue(query), () => search())
+  watch(() => [toValue(filter).kind, toValue(filter).source], () => search(true))
 
   const fetchList = async (id: ListTab) => {
     const clips = await invoke<Clip[]>('list_clips', scopeOf(id))
@@ -77,6 +105,17 @@ export function useClips(query: MaybeRefOrGetter<string> = '', tab: MaybeRefOrGe
   const loadTab = async () => {
     const id = ++loadId
     const current = toValue(tab)
+    // The tab shows up with its own results, not the ones of the previous tab
+    if (filtering() && current !== 'history') {
+      // Ready for when the filters are cleared
+      prefetch(current)
+      const resultsId = searchId
+      const found = await searchIn(current).catch(() => [])
+      if (id !== loadId) return
+      if (resultsId === searchId) results.value = found
+      shownTab.value = current
+      return
+    }
     if (current === 'history' || listCache.has(current)) {
       shownTab.value = current
       if (current !== 'history') fetchList(current).catch(() => {})
@@ -87,13 +126,12 @@ export function useClips(query: MaybeRefOrGetter<string> = '', tab: MaybeRefOrGe
   }
   watch(() => toValue(tab), () => {
     loadTab()
-    if (results.value) search()
   })
 
   const onClipAdded = (clip: Clip) => {
     history.value = [clip, ...history.value.filter(c => c.id !== clip.id)]
     updateCache(clips => clips.map(c => (c.id === clip.id ? clip : c)))
-    if (results.value) search()
+    if (filtering()) search()
   }
 
   const onClipsRemoved = (ids: number[]) => {
@@ -101,6 +139,7 @@ export function useClips(query: MaybeRefOrGetter<string> = '', tab: MaybeRefOrGe
     const keep = (list: Clip[]) => list.filter(c => !removed.has(c.id))
     history.value = keep(history.value)
     updateCache(keep)
+    if (historyResults.value) historyResults.value = keep(historyResults.value)
     if (results.value) results.value = keep(results.value)
   }
 
@@ -129,6 +168,7 @@ export function useClips(query: MaybeRefOrGetter<string> = '', tab: MaybeRefOrGe
     refreshCounts()
     history.value = without(history.value, clip)!
     updateCache(clips => without(clips, clip)!)
+    historyResults.value = without(historyResults.value, clip)
     results.value = without(results.value, clip)
   }
 
@@ -183,6 +223,7 @@ export function useClips(query: MaybeRefOrGetter<string> = '', tab: MaybeRefOrGe
     const replace = (list: Clip[]) => list.map(c => (c.id === updated.id ? updated : c))
     history.value = replace(history.value)
     updateCache(replace)
+    if (historyResults.value) historyResults.value = replace(historyResults.value)
     const favorites = listCache.get('favorites')
     if (favorites) listCache.set('favorites', updated.favorite ? [updated, ...without(favorites, updated)!] : without(favorites, updated)!)
     if (results.value) {
@@ -191,7 +232,7 @@ export function useClips(query: MaybeRefOrGetter<string> = '', tab: MaybeRefOrGe
     return updated
   }
 
-  const searching = computed(() => results.value !== null)
+  const searching = computed(() => historyResults.value !== null)
   const loading = computed(() => toValue(tab) !== shownTab.value)
 
   return {

@@ -2,7 +2,7 @@ use std::path::Path;
 use std::sync::Mutex;
 
 use rusqlite::{Connection, OptionalExtension, Row, params};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::link_preview::LinkPreview;
 use crate::source_app::SourceApp;
@@ -93,6 +93,8 @@ const MIGRATIONS: &[&str] = &[
      UPDATE link_previews SET fetched_at = 0;",
     "ALTER TABLE clips ADD COLUMN favorited_at INTEGER;
      UPDATE clips SET favorited_at = created_at WHERE favorite = 1;",
+    // NULL until recognized, empty when the image has no text
+    "ALTER TABLE clips ADD COLUMN image_text TEXT;",
 ];
 
 fn migrate(conn: &mut Connection) -> rusqlite::Result<()> {
@@ -254,6 +256,39 @@ pub fn set_byte_size(conn: &Connection, id: i64, byte_size: i64) -> rusqlite::Re
     Ok(())
 }
 
+/// Images, and single image files the `image` crate can decode.
+const HAS_IMAGE: &str = "(kind = 'image' OR (kind = 'files' AND instr(content, char(10)) = 0
+     AND (content LIKE '%.png' OR content LIKE '%.jpg' OR content LIKE '%.jpeg' OR content LIKE '%.webp'
+          OR content LIKE '%.gif' OR content LIKE '%.bmp')))";
+
+pub fn images_without_text(conn: &Connection) -> rusqlite::Result<Vec<i64>> {
+    let mut stmt = conn
+        .prepare(&format!("SELECT id FROM clips WHERE {HAS_IMAGE} AND image_text IS NULL ORDER BY created_at DESC"))?;
+
+    stmt.query_map([], |row| row.get(0))?.collect()
+}
+
+pub fn needs_image_text(conn: &Connection, id: i64) -> rusqlite::Result<bool> {
+    conn.query_row(
+        &format!("SELECT EXISTS (SELECT 1 FROM clips WHERE id = ?1 AND {HAS_IMAGE} AND image_text IS NULL)"),
+        params![id],
+        |row| row.get(0),
+    )
+}
+
+pub fn image_text(conn: &Connection, id: i64) -> rusqlite::Result<Option<String>> {
+    conn.query_row(&format!("SELECT image_text FROM clips WHERE id = ?1 AND {HAS_IMAGE}"), params![id], |row| {
+        row.get(0)
+    })
+    .optional()
+    .map(Option::flatten)
+}
+
+pub fn set_image_text(conn: &Connection, id: i64, text: &str) -> rusqlite::Result<()> {
+    conn.execute("UPDATE clips SET image_text = ?2 WHERE id = ?1", params![id, text])?;
+    Ok(())
+}
+
 pub fn get(conn: &Connection, id: i64) -> rusqlite::Result<Clip> {
     conn.query_row(&format!("SELECT {COLUMNS} FROM clips WHERE id = ?1"), params![id], to_clip)
 }
@@ -338,13 +373,102 @@ impl Scope {
     }
 }
 
-pub fn list(conn: &Connection, limit: u32, scope: Scope) -> rusqlite::Result<Vec<Clip>> {
-    let (join, filter, order) = scope.sql();
-    let filter = filter.map(|filter| format!("WHERE {filter}")).unwrap_or_default();
+const IMAGE_EXTENSIONS: [&str; 12] =
+    ["png", "jpg", "jpeg", "webp", "gif", "bmp", "svg", "ico", "tif", "tiff", "heic", "avif"];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Kind {
+    Text,
+    Link,
+    Color,
+    Image,
+    Files,
+}
+
+impl Kind {
+    /// Same rules as the tiles: `copiedLink` and `copiedColor` in `app/utils`.
+    fn sql(self) -> String {
+        let t = "trim(content, char(32, 9, 10, 13))";
+        let link = format!(
+            "(kind = 'text' AND ({t} LIKE 'http://_%' OR {t} LIKE 'https://_%')
+              AND instr({t}, ' ') = 0 AND instr({t}, char(9)) = 0 AND instr({t}, char(10)) = 0 AND instr({t}, char(13)) = 0)"
+        );
+        let color = format!(
+            "(kind = 'text' AND (
+               (substr({t}, 1, 1) = '#' AND length({t}) IN (4, 5, 7, 9) AND substr({t}, 2) NOT GLOB '*[^0-9a-fA-F]*')
+               OR (length({t}) IN (6, 8) AND {t} NOT GLOB '*[^0-9a-fA-F]*')
+               OR (lower(substr({t}, 1, instr({t}, '(') - 1)) IN ('rgb', 'rgba', 'hsl', 'hsla', 'hwb', 'lab', 'lch', 'oklab', 'oklch', 'color')
+                   AND {t} GLOB '*)'
+                   AND length({t}) - length(replace({t}, '(', '')) = 1
+                   AND length({t}) - length(replace({t}, ')', '')) = 1)))"
+        );
+        match self {
+            Self::Text => format!("(kind = 'text' AND NOT {link} AND NOT {color})"),
+            Self::Link => link,
+            Self::Color => color,
+            Self::Image => {
+                let lines = "(content || char(10))";
+                let files = IMAGE_EXTENSIONS
+                    .iter()
+                    .map(|ext| format!("{lines} LIKE '%.{ext}' || char(10) || '%'"))
+                    .collect::<Vec<_>>()
+                    .join(" OR ");
+                format!("(kind = 'image' OR (kind = 'files' AND ({files})))")
+            }
+            Self::Files => "kind = 'files'".into(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct Filter {
+    pub kind: Option<Kind>,
+    pub source: Option<String>,
+}
+
+impl Filter {
+    /// Conditions, and the parameters they number from `first`.
+    fn sql(&self, first: usize) -> (Vec<String>, Vec<String>) {
+        let mut conditions: Vec<String> = self.kind.map(Kind::sql).into_iter().collect();
+        let params: Vec<String> = self.source.iter().cloned().collect();
+        if !params.is_empty() {
+            conditions.push(format!("source_app_name = ?{first}"));
+        }
+        (conditions, params)
+    }
+}
+
+pub fn list(conn: &Connection, limit: u32, scope: Scope, filter: &Filter) -> rusqlite::Result<Vec<Clip>> {
+    let (join, scope_filter, order) = scope.sql();
+    let (mut conditions, params) = filter.sql(1);
+    conditions.extend(scope_filter.map(str::to_owned));
+    let filter = if conditions.is_empty() { String::new() } else { format!("WHERE {}", conditions.join(" AND ")) };
     let mut stmt =
         conn.prepare(&format!("SELECT {COLUMNS} FROM clips {join} {filter} ORDER BY {order} LIMIT {limit}"))?;
 
-    stmt.query_map([], to_clip)?.collect()
+    stmt.query_map(rusqlite::params_from_iter(&params), to_clip)?.collect()
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct Source {
+    pub name: String,
+    pub path: Option<String>,
+}
+
+/// The apps clips of the scope come from, the most used first.
+pub fn sources(conn: &Connection, scope: Scope) -> rusqlite::Result<Vec<Source>> {
+    let (join, filter, _) = scope.sql();
+    let filter = filter.map(|filter| format!("AND {filter}")).unwrap_or_default();
+    // A bare column next to MAX() comes from the row of that max: the latest path of the app
+    let mut stmt = conn.prepare(&format!(
+        "SELECT source_app_name, source_app_path, MAX(created_at) FROM clips {join}
+         WHERE source_app_name IS NOT NULL {filter}
+         GROUP BY source_app_name
+         ORDER BY COUNT(*) DESC, source_app_name"
+    ))?;
+
+    stmt.query_map([], |row| Ok(Source { name: row.get(0)?, path: row.get(1)? }))?.collect()
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -426,28 +550,38 @@ pub fn clip_collections(conn: &Connection, clip: i64) -> rusqlite::Result<Vec<i6
     stmt.query_map(params![clip], |row| row.get(0))?.collect()
 }
 
-pub fn search(conn: &Connection, query: &str, limit: u32, scope: Scope) -> rusqlite::Result<Vec<Clip>> {
-    let words: Vec<String> = query
+pub fn search(
+    conn: &Connection,
+    query: &str,
+    limit: u32,
+    scope: Scope,
+    filter: &Filter,
+) -> rusqlite::Result<Vec<Clip>> {
+    let mut words: Vec<String> = query
         .split_whitespace()
         // Searched as is: `%` and `_` are not wildcards
         .map(|word| format!("%{}%", word.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_")))
         .collect();
     if words.is_empty() {
-        return list(conn, limit, scope);
+        return list(conn, limit, scope, filter);
     }
-    let (join, filter, order) = scope.sql();
+    let (join, scope_filter, order) = scope.sql();
 
     let mut conditions: Vec<String> = (1..=words.len())
         .map(|i| {
             format!(
                 "((kind <> 'image' AND content LIKE ?{i} ESCAPE '\\')
+                  OR image_text LIKE ?{i} ESCAPE '\\'
                   OR source_app_name LIKE ?{i} ESCAPE '\\'
                   OR title LIKE ?{i} ESCAPE '\\'
                   OR description LIKE ?{i} ESCAPE '\\')"
             )
         })
         .collect();
-    conditions.extend(filter.map(str::to_owned));
+    conditions.extend(scope_filter.map(str::to_owned));
+    let (filter_conditions, filter_params) = filter.sql(words.len() + 1);
+    conditions.extend(filter_conditions);
+    words.extend(filter_params);
     let mut stmt = conn.prepare(&format!(
         "SELECT {COLUMNS} FROM clips
          {join}
@@ -541,23 +675,23 @@ mod tests {
         let conn = memory();
         let first = text(&conn, "first", 1);
         let second = text(&conn, "second", 2);
-        assert_eq!(ids(&list(&conn, 10, Scope::History).unwrap()), [second.id, first.id]);
+        assert_eq!(ids(&list(&conn, 10, Scope::History, &Filter::default()).unwrap()), [second.id, first.id]);
 
         let again = text(&conn, "first", 3);
         assert_eq!(again.id, first.id);
-        assert_eq!(ids(&list(&conn, 10, Scope::History).unwrap()), [first.id, second.id]);
+        assert_eq!(ids(&list(&conn, 10, Scope::History, &Filter::default()).unwrap()), [first.id, second.id]);
     }
 
     #[test]
     fn dropped_clips_stay_out_of_the_history_until_copied() {
         let conn = memory();
         let dropped = save_dropped(&conn, NewClip::Text("dropped"), None, 1).unwrap();
-        assert!(list(&conn, 10, Scope::History).unwrap().is_empty());
+        assert!(list(&conn, 10, Scope::History, &Filter::default()).unwrap().is_empty());
         assert_eq!(count(&conn).unwrap(), 0);
 
         let copied = text(&conn, "dropped", 2);
         assert_eq!(copied.id, dropped.id);
-        assert_eq!(ids(&list(&conn, 10, Scope::History).unwrap()), [dropped.id]);
+        assert_eq!(ids(&list(&conn, 10, Scope::History, &Filter::default()).unwrap()), [dropped.id]);
     }
 
     #[test]
@@ -565,7 +699,7 @@ mod tests {
         let conn = memory();
         let copied = text(&conn, "copied", 1);
         save_dropped(&conn, NewClip::Text("copied"), None, 2).unwrap();
-        assert_eq!(ids(&list(&conn, 10, Scope::History).unwrap()), [copied.id]);
+        assert_eq!(ids(&list(&conn, 10, Scope::History, &Filter::default()).unwrap()), [copied.id]);
     }
 
     #[test]
@@ -642,13 +776,19 @@ mod tests {
         add_to_collection(&conn, collection.id, first.id, 1).unwrap();
         add_to_collection(&conn, collection.id, second.id, 2).unwrap();
         add_to_collection(&conn, collection.id, first.id, 3).unwrap();
-        assert_eq!(ids(&list(&conn, 10, Scope::Collection(collection.id)).unwrap()), [second.id, first.id]);
+        assert_eq!(
+            ids(&list(&conn, 10, Scope::Collection(collection.id), &Filter::default()).unwrap()),
+            [second.id, first.id]
+        );
 
         reorder_collection(&mut conn, collection.id, &[first.id, second.id]).unwrap();
-        assert_eq!(ids(&list(&conn, 10, Scope::Collection(collection.id)).unwrap()), [first.id, second.id]);
+        assert_eq!(
+            ids(&list(&conn, 10, Scope::Collection(collection.id), &Filter::default()).unwrap()),
+            [first.id, second.id]
+        );
 
         remove_from_collection(&conn, collection.id, first.id).unwrap();
-        assert_eq!(ids(&list(&conn, 10, Scope::Collection(collection.id)).unwrap()), [second.id]);
+        assert_eq!(ids(&list(&conn, 10, Scope::Collection(collection.id), &Filter::default()).unwrap()), [second.id]);
         assert_eq!(clip_collections(&conn, second.id).unwrap(), [collection.id]);
     }
 
@@ -669,7 +809,7 @@ mod tests {
         let conn = memory();
         let both = text(&conn, "hello world", 1);
         text(&conn, "hello", 2);
-        assert_eq!(ids(&search(&conn, "  world   hello ", 10, Scope::History).unwrap()), [both.id]);
+        assert_eq!(ids(&search(&conn, "  world   hello ", 10, Scope::History, &Filter::default()).unwrap()), [both.id]);
     }
 
     #[test]
@@ -680,9 +820,9 @@ mod tests {
         let underscore = text(&conn, "snake_case", 3);
         text(&conn, "snakeXcase", 4);
         let backslash = text(&conn, "C:\\Users", 5);
-        assert_eq!(ids(&search(&conn, "100%", 10, Scope::History).unwrap()), [percent.id]);
-        assert_eq!(ids(&search(&conn, "e_c", 10, Scope::History).unwrap()), [underscore.id]);
-        assert_eq!(ids(&search(&conn, ":\\u", 10, Scope::History).unwrap()), [backslash.id]);
+        assert_eq!(ids(&search(&conn, "100%", 10, Scope::History, &Filter::default()).unwrap()), [percent.id]);
+        assert_eq!(ids(&search(&conn, "e_c", 10, Scope::History, &Filter::default()).unwrap()), [underscore.id]);
+        assert_eq!(ids(&search(&conn, ":\\u", 10, Scope::History, &Filter::default()).unwrap()), [backslash.id]);
     }
 
     #[test]
@@ -694,9 +834,61 @@ mod tests {
         let link = text(&conn, "https://example.com/", 3);
         save_link_preview(&conn, &preview("https://example.com/", Some("Example Domain"), None), 3).unwrap();
 
-        assert_eq!(ids(&search(&conn, "notepad", 10, Scope::History).unwrap()), [from_notepad.id]);
-        assert!(search(&conn, "deadbeef", 10, Scope::History).unwrap().is_empty());
-        assert_eq!(ids(&search(&conn, "domain", 10, Scope::History).unwrap()), [link.id]);
+        assert_eq!(ids(&search(&conn, "notepad", 10, Scope::History, &Filter::default()).unwrap()), [from_notepad.id]);
+        assert!(search(&conn, "deadbeef", 10, Scope::History, &Filter::default()).unwrap().is_empty());
+        assert_eq!(ids(&search(&conn, "domain", 10, Scope::History, &Filter::default()).unwrap()), [link.id]);
+    }
+
+    #[test]
+    fn search_finds_images_by_their_text() {
+        let conn = memory();
+        let image =
+            save(&conn, NewClip::Image { hash: "deadbeef", width: 1, height: 1, byte_size: 4 }, None, 1).unwrap();
+        assert_eq!(image_text(&conn, image.id).unwrap(), None);
+        set_image_text(&conn, image.id, "Invoice total\n42 €").unwrap();
+
+        assert_eq!(image_text(&conn, image.id).unwrap().as_deref(), Some("Invoice total\n42 €"));
+        assert_eq!(ids(&search(&conn, "invoice 42", 10, Scope::History, &Filter::default()).unwrap()), [image.id]);
+        assert!(search(&conn, "deadbeef", 10, Scope::History, &Filter::default()).unwrap().is_empty());
+    }
+
+    #[test]
+    fn only_images_not_yet_recognized_are_left() {
+        let conn = memory();
+        let image = |hash: &str, now| {
+            save(&conn, NewClip::Image { hash, width: 1, height: 1, byte_size: 4 }, None, now).unwrap()
+        };
+        let old = image("a", 1);
+        let without_text = image("b", 2);
+        let recognized = image("c", 3);
+        let new = image("d", 4);
+        text(&conn, "text", 5);
+        set_image_text(&conn, without_text.id, "").unwrap();
+        set_image_text(&conn, recognized.id, "hello").unwrap();
+
+        assert_eq!(images_without_text(&conn).unwrap(), [new.id, old.id]);
+        assert_eq!(image_text(&conn, without_text.id).unwrap().as_deref(), Some(""));
+        assert!(needs_image_text(&conn, new.id).unwrap());
+        assert!(!needs_image_text(&conn, recognized.id).unwrap());
+    }
+
+    #[test]
+    fn single_image_files_are_recognized_too() {
+        let conn = memory();
+        let files = |paths: &str, now| save(&conn, NewClip::Files { paths, byte_size: None }, None, now).unwrap();
+        let photo = files("C:\\Photo.JPG", 1);
+        let group = files("C:\\a.png\nC:\\b.png", 2);
+        let document = files("C:\\notes.txt", 3);
+        let named_png = files("C:\\png", 4);
+
+        assert_eq!(images_without_text(&conn).unwrap(), [photo.id]);
+        assert!(!needs_image_text(&conn, group.id).unwrap());
+        assert!(!needs_image_text(&conn, document.id).unwrap());
+        assert!(!needs_image_text(&conn, named_png.id).unwrap());
+
+        set_image_text(&conn, photo.id, "Receipt").unwrap();
+        assert_eq!(image_text(&conn, photo.id).unwrap().as_deref(), Some("Receipt"));
+        assert_eq!(ids(&search(&conn, "receipt", 10, Scope::History, &Filter::default()).unwrap()), [photo.id]);
     }
 
     #[test]
@@ -709,11 +901,62 @@ mod tests {
         let collection = create_collection(&conn, "Fruits", 1).unwrap();
         add_to_collection(&conn, collection.id, dropped.id, 1).unwrap();
 
-        assert_eq!(ids(&search(&conn, "apple", 10, Scope::Favorites).unwrap()), [favorite.id]);
-        assert_eq!(ids(&list(&conn, 10, Scope::Favorites).unwrap()), [favorite.id]);
-        assert_eq!(search(&conn, "apple", 10, Scope::History).unwrap().len(), 2);
-        assert_eq!(search(&conn, "apple", 1, Scope::History).unwrap().len(), 1);
-        assert_eq!(ids(&search(&conn, "apple", 10, Scope::Collection(collection.id)).unwrap()), [dropped.id]);
+        assert_eq!(ids(&search(&conn, "apple", 10, Scope::Favorites, &Filter::default()).unwrap()), [favorite.id]);
+        assert_eq!(ids(&list(&conn, 10, Scope::Favorites, &Filter::default()).unwrap()), [favorite.id]);
+        assert_eq!(search(&conn, "apple", 10, Scope::History, &Filter::default()).unwrap().len(), 2);
+        assert_eq!(search(&conn, "apple", 1, Scope::History, &Filter::default()).unwrap().len(), 1);
+        assert_eq!(
+            ids(&search(&conn, "apple", 10, Scope::Collection(collection.id), &Filter::default()).unwrap()),
+            [dropped.id]
+        );
+    }
+
+    #[test]
+    fn filters_by_kind_like_the_tiles() {
+        let conn = memory();
+        let note = text(&conn, "hello world", 1);
+        let link = text(&conn, "  https://example.com/a?b=1\n", 2);
+        let not_a_link = text(&conn, "https://example.com and more", 3);
+        let hex = text(&conn, "#FFAA00", 4);
+        let bare_hex = text(&conn, "ffaa00cc", 5);
+        let function = text(&conn, "RGBA(0 0 0 / 50%)", 6);
+        let nested = text(&conn, "rgb(calc(1) 0 0)", 7);
+        let image = save(&conn, NewClip::Image { hash: "abc", width: 1, height: 1, byte_size: 4 }, None, 8).unwrap();
+        let files = save(&conn, NewClip::Files { paths: "C:\\a.txt", byte_size: None }, None, 9).unwrap();
+        let image_file = save(&conn, NewClip::Files { paths: "C:\\photo.PNG", byte_size: None }, None, 10).unwrap();
+        let mixed = save(&conn, NewClip::Files { paths: "C:\\b.txt\nC:\\c.jpg\nC:\\d.pdf", byte_size: None }, None, 11)
+            .unwrap();
+        let not_images =
+            save(&conn, NewClip::Files { paths: "C:\\e.png.txt\nC:\\f.pdf", byte_size: None }, None, 12).unwrap();
+        let of = |kind| {
+            let mut found = ids(&list(&conn, 20, Scope::History, &Filter { kind: Some(kind), source: None }).unwrap());
+            found.sort();
+            found
+        };
+
+        assert_eq!(of(Kind::Text), [note.id, not_a_link.id, nested.id]);
+        assert_eq!(of(Kind::Link), [link.id]);
+        assert_eq!(of(Kind::Color), [hex.id, bare_hex.id, function.id]);
+        assert_eq!(of(Kind::Image), [image.id, image_file.id, mixed.id]);
+        assert_eq!(of(Kind::Files), [files.id, image_file.id, mixed.id, not_images.id]);
+    }
+
+    #[test]
+    fn filters_by_source_app_while_searching() {
+        let conn = memory();
+        let notepad = SourceApp { name: "Notepad".into(), path: "C:\\notepad.exe".into() };
+        let code = SourceApp { name: "Code".into(), path: "C:\\code.exe".into() };
+        let from_notepad = save(&conn, NewClip::Text("apple"), Some(&notepad), 1).unwrap();
+        save(&conn, NewClip::Text("apple pie"), Some(&code), 2).unwrap();
+        save(&conn, NewClip::Text("banana"), Some(&code), 3).unwrap();
+        text(&conn, "apple tart", 4);
+        let filter = Filter { kind: Some(Kind::Text), source: Some("Notepad".into()) };
+
+        assert_eq!(ids(&search(&conn, "apple", 10, Scope::History, &filter).unwrap()), [from_notepad.id]);
+        assert_eq!(ids(&search(&conn, "", 10, Scope::History, &filter).unwrap()), [from_notepad.id]);
+        let names: Vec<String> = sources(&conn, Scope::History).unwrap().into_iter().map(|s| s.name).collect();
+        assert_eq!(names, ["Code", "Notepad"]);
+        assert!(sources(&conn, Scope::Favorites).unwrap().is_empty());
     }
 
     #[test]
@@ -725,12 +968,12 @@ mod tests {
         set_favorite(&conn, new.id, true, 10).unwrap();
         set_favorite(&conn, dropped.id, true, 11).unwrap();
         set_favorite(&conn, old.id, true, 12).unwrap();
-        assert_eq!(ids(&list(&conn, 10, Scope::Favorites).unwrap()), [old.id, dropped.id, new.id]);
+        assert_eq!(ids(&list(&conn, 10, Scope::Favorites, &Filter::default()).unwrap()), [old.id, dropped.id, new.id]);
 
         set_favorite(&conn, dropped.id, false, 13).unwrap();
         set_favorite(&conn, dropped.id, true, 14).unwrap();
-        assert_eq!(ids(&list(&conn, 10, Scope::Favorites).unwrap()), [dropped.id, old.id, new.id]);
-        assert_eq!(ids(&list(&conn, 10, Scope::History).unwrap()), [new.id, old.id]);
+        assert_eq!(ids(&list(&conn, 10, Scope::Favorites, &Filter::default()).unwrap()), [dropped.id, old.id, new.id]);
+        assert_eq!(ids(&list(&conn, 10, Scope::History, &Filter::default()).unwrap()), [new.id, old.id]);
     }
 
     #[test]
