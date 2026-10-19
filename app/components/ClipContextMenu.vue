@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Clip } from '@/composables/useClips'
 import { invoke } from '@tauri-apps/api/core'
+import { openUrl } from '@tauri-apps/plugin-opener'
 
 const props = defineProps<{
   clip: Clip
@@ -9,6 +10,8 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   copy: []
+  copyText: []
+  save: []
   info: []
   favorite: []
   delete: []
@@ -19,13 +22,31 @@ const emit = defineEmits<{
 const { collections } = useCollections()
 
 const memberOf = ref<number[]>([])
+const hasText = ref(false)
 const open = ref(false)
 const subOpen = ref(false)
 const opened = ref(false)
 watch(open, async (isOpen) => {
-  if (isOpen) opened.value = true
-  if (isOpen) memberOf.value = await invoke<number[]>('clip_collections', { clip: props.clip.id }).catch(() => [])
+  if (!isOpen) return
+  opened.value = true
+  if (props.clip.kind !== 'text') {
+    invoke<string | null>('get_image_text', { id: props.clip.id })
+      .then(text => (hasText.value = !!text))
+      .catch(() => (hasText.value = false))
+  }
+  memberOf.value = await invoke<number[]>('clip_collections', { clip: props.clip.id }).catch(() => [])
 })
+
+const saveLabel = computed(() => {
+  if (props.clip.kind === 'image') return 'Save as…'
+  if (props.clip.kind !== 'files') return null
+  return props.clip.content.includes('\n') ? 'Save to folder…' : 'Save as…'
+})
+
+const link = computed(() => (props.clip.kind === 'text' ? copiedLink(props.clip.content) : null))
+function openLink() {
+  if (link.value) openUrl(link.value).catch(() => notifyClip(props.clip.id, 'Couldn’t open the link'))
+}
 
 function toggle(collection: number, checked: boolean | 'indeterminate') {
   if (checked === true) emit('add', collection)
@@ -46,6 +67,20 @@ function toggle(collection: number, checked: boolean | 'indeterminate') {
               <Icon name="gravity-ui:copy" :class="menuIcon" />
               Copy
             </ContextMenuItem>
+            <ContextMenuItem v-if="hasText" :class="menuItem" @select="emit('copyText')">
+              <Icon name="gravity-ui:text" :class="menuIcon" />
+              Copy text
+            </ContextMenuItem>
+            <ContextMenuItem v-if="link" :class="menuItem" @select="openLink">
+              <Icon name="gravity-ui:arrow-up-right-from-square" :class="menuIcon" />
+              Open link
+            </ContextMenuItem>
+            <ContextMenuItem v-if="saveLabel" :class="menuItem" @select="emit('save')">
+              <Icon name="gravity-ui:file-arrow-down" :class="menuIcon" />
+              {{ saveLabel }}
+            </ContextMenuItem>
+
+            <ContextMenuSeparator :class="menuSeparator" />
             <ContextMenuItem :class="menuItem" @select="emit('info')">
               <Icon name="gravity-ui:circle-info" :class="menuIcon" />
               Details
@@ -88,9 +123,14 @@ function toggle(collection: number, checked: boolean | 'indeterminate') {
               </ContextMenuPortal>
             </ContextMenuSub>
 
+            <ContextMenuSeparator :class="menuSeparator" />
             <ContextMenuItem v-if="collection === null" :class="menuItem" @select="emit('delete')">
               <Icon name="gravity-ui:trash-bin" :class="menuIcon" />
               Delete
+            </ContextMenuItem>
+            <ContextMenuItem v-else :class="menuItem" @select="emit('removeFrom', collection)">
+              <Icon name="gravity-ui:xmark" :class="menuIcon" />
+              Remove
             </ContextMenuItem>
           </Motion>
         </ContextMenuContent>

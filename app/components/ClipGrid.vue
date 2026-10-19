@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Clip, PartialCopy } from '@/composables/useClips'
+import { invoke } from '@tauri-apps/api/core'
 import { animate } from 'motion-v'
 
 const props = defineProps<{
@@ -25,6 +26,20 @@ const cards = new Map<number, { copy: () => Promise<void> }>()
 function setCard(id: number, card: unknown) {
   if (card) cards.set(id, card as { copy: () => Promise<void> })
   else cards.delete(id)
+}
+
+async function copyImageText(clip: Clip) {
+  await invoke('copy_image_text', { id: clip.id })
+    .then(() => notifyClip(clip.id, 'Copied text'))
+    .catch(error => notifyClip(clip.id, typeof error === 'string' ? error : 'Couldn’t copy'))
+}
+
+async function saveAs(clip: Clip) {
+  await invoke<{ saved: number, total: number } | null>('save_clip_as', { id: clip.id })
+    .then((saved) => {
+      if (saved) notifyClip(clip.id, saved.saved < saved.total ? `Saved (${saved.saved}/${saved.total})` : 'Saved')
+    })
+    .catch(error => notifyClip(clip.id, typeof error === 'string' ? error : 'Couldn’t save'))
 }
 
 const REORDER_PAUSE_MS = 150
@@ -144,6 +159,8 @@ function onRemoveFrom(clip: Clip, collection: number) {
             :clip="clip"
             :collection="collection"
             @copy="cards.get(clip.id)?.copy()"
+            @copy-text="copyImageText(clip)"
+            @save="saveAs(clip)"
             @info="emit('info', clip)"
             @favorite="emit('favorite', clip)"
             @delete="pending = { clip: clip.id, action: 'delete' }"

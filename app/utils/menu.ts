@@ -4,6 +4,8 @@ export const menuIcon = 'shrink-0 text-sm opacity-70'
 
 export const menuItem = 'flex h-6 cursor-default items-center gap-2 rounded-[4px] px-2 outline-none data-disabled:opacity-40 data-highlighted:bg-black/[3.73%] dark:data-highlighted:bg-white/[6.05%]'
 
+export const menuSeparator = 'my-1 h-px bg-black/[5.78%] dark:bg-white/[8.37%]'
+
 export const menuMotion = {
   initial: { opacity: 0, scale: 0.85 },
   animate: { opacity: 1, scale: 1, transition: { type: 'spring' as const, bounce: 0.35, visualDuration: 0.2 } },
