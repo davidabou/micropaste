@@ -14,7 +14,7 @@ pub fn micropaste() -> Option<SourceApp> {
 }
 
 #[cfg(windows)]
-pub fn detect() -> Option<SourceApp> {
+pub fn detect(image: bool) -> Option<SourceApp> {
     use windows::Win32::System::DataExchange::GetClipboardOwner;
     use windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow;
 
@@ -30,9 +30,10 @@ pub fn detect() -> Option<SourceApp> {
     let process = owner.or_else(|| {
         let foreground = foreground()?;
         // A classic app in the foreground doesn't write through the Windows service:
-        // the copy came from a background Store app, usually a Win+Shift+S screenshot
+        // the copy came from a background Store app, usually a Win+Shift+S screenshot.
+        // A Store app in the foreground does, but the Snipping Tool only runs around a capture
         if via_system_host
-            && foreground.app_user_model_id.is_none()
+            && (foreground.app_user_model_id.is_none() || image)
             && let Some(snipping_tool) = win::running_snipping_tool()
         {
             return Some(snipping_tool);
@@ -71,7 +72,7 @@ fn describe(process: win::Process) -> Option<SourceApp> {
 }
 
 #[cfg(not(windows))]
-pub fn detect() -> Option<SourceApp> {
+pub fn detect(_image: bool) -> Option<SourceApp> {
     None
 }
 
