@@ -12,6 +12,7 @@ use crate::db::{self, Db};
 const SHORTCUT_KEY: &str = "shortcut";
 const RETENTION_KEY: &str = "retention_days";
 const LAYOUT_KEY: &str = "layout";
+const LAUNCH_AT_STARTUP_KEY: &str = "launch_at_startup";
 const LAYOUTS: [&str; 2] = ["grid", "list"];
 const DEFAULT_SHORTCUT: &str = "Alt+Shift+V";
 const DEFAULT_RETENTION_DAYS: u32 = 30;
@@ -99,8 +100,50 @@ pub fn set_launch_at_startup(app: &AppHandle, enabled: bool) -> Result<bool, Str
     let launcher = app.autolaunch();
     if enabled { launcher.enable() } else { launcher.disable() }.map_err(|e| e.to_string())?;
     let enabled = launcher.is_enabled().unwrap_or(enabled);
+    let _ = write(app, LAUNCH_AT_STARTUP_KEY, &enabled.to_string());
     background::show_launch_at_startup_in_tray(app, enabled);
     Ok(enabled)
+}
+
+/// On by default. The uninstaller, which an upgrade also runs, deletes the startup entry:
+/// bring it back unless turned off in the app. Installed builds only: a dev build would
+/// register its temporary executable.
+pub fn restore_launch_at_startup(app: &AppHandle) {
+    if cfg!(debug_assertions)
+        || read(app, LAUNCH_AT_STARTUP_KEY).is_some_and(|value| value == "false")
+        || has_startup_entry(app)
+    {
+        return;
+    }
+    if app.autolaunch().enable().is_ok() {
+        let _ = write(app, LAUNCH_AT_STARTUP_KEY, "true");
+    }
+}
+
+/// Only the `Run` value: turned off in the Task Manager, the entry stays there and must stay off.
+#[cfg(windows)]
+fn has_startup_entry(app: &AppHandle) -> bool {
+    use windows::Win32::System::Registry::{HKEY_CURRENT_USER, RRF_RT_ANY, RegGetValueW};
+    use windows::core::{HSTRING, w};
+
+    let name = HSTRING::from(app.package_info().name.as_str());
+    let result = unsafe {
+        RegGetValueW(
+            HKEY_CURRENT_USER,
+            w!(r"Software\Microsoft\Windows\CurrentVersion\Run"),
+            &name,
+            RRF_RT_ANY,
+            None,
+            None,
+            None,
+        )
+    };
+    result.is_ok()
+}
+
+#[cfg(not(windows))]
+fn has_startup_entry(app: &AppHandle) -> bool {
+    app.autolaunch().is_enabled().unwrap_or(false)
 }
 
 pub fn set_recording_shortcut(recording: bool) {

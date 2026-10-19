@@ -77,7 +77,7 @@ pub fn setup(app: &mut App) -> tauri::Result<()> {
         eprintln!("[shortcut] cannot register {shortcut}: {e}");
     }
 
-    enable_launch_at_startup_once(app);
+    settings::restore_launch_at_startup(app.handle());
     create_tray(app, &shortcut)
 }
 
@@ -91,21 +91,6 @@ fn move_to_bottom_right(window: &WebviewWindow) {
     let y = area.position.y + area.size.height as i32 - size.height as i32 - margin;
     let position = PhysicalPosition::new(x.max(area.position.x), y.max(area.position.y));
     let _ = window.set_position(position);
-}
-
-/// Installed builds only: a dev build would register its temporary executable.
-fn enable_launch_at_startup_once(app: &App) {
-    if cfg!(debug_assertions) {
-        return;
-    }
-    let Ok(dir) = app.path().app_data_dir() else { return };
-    let marker = dir.join("launch-at-startup-set");
-    if marker.exists() {
-        return;
-    }
-    if app.autolaunch().enable().is_ok() {
-        let _ = std::fs::write(marker, "");
-    }
 }
 
 pub fn show_shortcut_in_tray(app: &AppHandle, shortcut: &str) {
