@@ -1,6 +1,6 @@
 [package]
 name = "Micropaste"
-version = "0.3.1"
+version = "0.3.2"
 description = "Visual clipboard library for Windows 11"
 authors = ["davidabou"]
 license = "MIT"
