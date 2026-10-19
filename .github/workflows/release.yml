@@ -37,6 +37,8 @@ jobs:
       - uses: oven-sh/setup-bun@v2
 
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-pc-windows-msvc
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -58,7 +60,9 @@ jobs:
             echo 'EOF'
           } >> "$GITHUB_OUTPUT"
 
-      - uses: tauri-apps/tauri-action@v1
+      - name: Build the x64 installer
+        id: x64
+        uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -68,5 +72,15 @@ jobs:
           releaseBody: |
             ${{ steps.changelog.outputs.notes }}
 
-            Download the `x64-setup.exe` installer below to install Micropaste.
+            Download the installer below to install Micropaste: `x64-setup.exe` for most PCs, `arm64-setup.exe` for ARM PCs (Snapdragon).
           releaseDraft: true
+
+      # Cross-compiled on the same runner, uploaded to the release drafted above
+      - name: Build the ARM64 installer
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tauriScript: bun tauri
+          args: --target aarch64-pc-windows-msvc
+          releaseId: ${{ steps.x64.outputs.releaseId }}
