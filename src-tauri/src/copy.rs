@@ -75,6 +75,8 @@ pub fn copy(app: &AppHandle, id: i64) -> Result<Option<PartialCopy>, String> {
         None => db::touch(&db.0.lock().unwrap(), id, now_ms()),
     }
     .map_err(|e| e.to_string())?;
+    // The files left may be a single image
+    crate::ocr::queue(app, clip.id);
     let _ = app.emit(CLIP_ADDED_EVENT, clip);
     Ok(partial)
 }
@@ -103,6 +105,25 @@ pub fn copy_file(app: &AppHandle, id: i64, path: &str) -> Result<(), String> {
     let source = crate::source_app::micropaste();
     let new_clip = NewClip::Files { paths: path, byte_size: total_size(path) };
     let clip = db::save(&db.0.lock().unwrap(), new_clip, source.as_ref(), now_ms()).map_err(|e| e.to_string())?;
+    crate::ocr::queue(app, clip.id);
+    let _ = app.emit(CLIP_ADDED_EVENT, clip);
+    Ok(())
+}
+
+/// Copies the text recognized in an image: like a real copy, it goes to the top of the history.
+pub fn copy_image_text(app: &AppHandle, id: i64) -> Result<(), String> {
+    let db = app.state::<Db>();
+    let text = db::image_text(&db.0.lock().unwrap(), id).map_err(|e| e.to_string())?;
+    let Some(text) = text.filter(|text| !text.is_empty()) else {
+        return Err("No text found".into());
+    };
+    let mut clipboard = Clipboard::new().map_err(|e| e.to_string())?;
+    clipboard.set_text(&text).map_err(|e| e.to_string())?;
+    COPIED_SEQUENCE.store(clipboard_sequence(), Ordering::SeqCst);
+
+    let source = crate::source_app::micropaste();
+    let clip =
+        db::save(&db.0.lock().unwrap(), NewClip::Text(&text), source.as_ref(), now_ms()).map_err(|e| e.to_string())?;
     let _ = app.emit(CLIP_ADDED_EVENT, clip);
     Ok(())
 }

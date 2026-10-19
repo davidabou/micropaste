@@ -40,12 +40,16 @@ pub fn image(app: &AppHandle, collection: i64, bytes: &[u8]) -> Result<Clip, Str
     let hash = images::hash(&image);
     let dir = images::dir(app).map_err(|e| e.to_string())?;
     let byte_size = images::save(&dir, &hash, &image).map_err(|e| e.to_string())?;
-    save(app, collection, NewClip::Image { hash: &hash, width, height, byte_size: byte_size as i64 })
+    let clip = save(app, collection, NewClip::Image { hash: &hash, width, height, byte_size: byte_size as i64 })?;
+    crate::ocr::queue(app, clip.id);
+    Ok(clip)
 }
 
 fn files(app: &AppHandle, collection: i64, paths: &[String]) -> Result<Clip, String> {
     let paths = paths.join("\n");
-    save(app, collection, NewClip::Files { paths: &paths, byte_size: total_size(&paths) })
+    let clip = save(app, collection, NewClip::Files { paths: &paths, byte_size: total_size(&paths) })?;
+    crate::ocr::queue(app, clip.id);
+    Ok(clip)
 }
 
 /// Listens for the dropped files the page hands to WebView2: unlike the page, WebView2 knows their

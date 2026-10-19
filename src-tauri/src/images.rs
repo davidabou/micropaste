@@ -63,6 +63,18 @@ pub fn encode_png(width: u32, height: u32, rgba: &[u8]) -> Option<Vec<u8>> {
     Some(png)
 }
 
+/// By content rather than extension: a file can be misnamed.
+pub fn decode_file(path: &Path) -> io::Result<(u32, u32, Vec<u8>)> {
+    let image = image::ImageReader::open(path)?.with_guessed_format()?.decode().map_err(io::Error::other)?;
+    let rgba = image.to_rgba8();
+    Ok((rgba.width(), rgba.height(), rgba.into_raw()))
+}
+
+/// Read from the header only, `None` for files that aren't images.
+pub fn file_dimensions(path: &Path) -> Option<(u32, u32)> {
+    image::ImageReader::open(path).ok()?.with_guessed_format().ok()?.into_dimensions().ok()
+}
+
 pub fn load_rgba(dir: &Path, hash: &str) -> io::Result<(u32, u32, Vec<u8>)> {
     let file = fs::read(dir.join(format!("{hash}.png")))?;
     // Large screenshots exceed the decoder's default memory limit
@@ -79,4 +91,24 @@ pub fn load_rgba(dir: &Path, hash: &str) -> io::Result<(u32, u32, Vec<u8>)> {
     }
     rgba.truncate(info.buffer_size());
     Ok((info.width, info.height, rgba))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn file_dimensions_come_from_the_content() {
+        let dir = std::env::temp_dir().join(format!("micropaste-test-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let png = encode_png(3, 2, &[0; 24]).unwrap();
+        // A misnamed image is still read, a text file is not an image
+        fs::write(dir.join("image.txt"), &png).unwrap();
+        fs::write(dir.join("notes.png"), "hello").unwrap();
+
+        assert_eq!(file_dimensions(&dir.join("image.txt")), Some((3, 2)));
+        assert_eq!(file_dimensions(&dir.join("notes.png")), None);
+        assert_eq!(file_dimensions(&dir.join("missing.png")), None);
+        let _ = fs::remove_dir_all(&dir);
+    }
 }

@@ -67,7 +67,7 @@ impl Watcher {
             }
             Content::Files(paths) => NewClip::Files { paths, byte_size: total_size(paths) },
         };
-        let source = source_app::detect();
+        let source = source_app::detect(matches!(content, Content::Image { .. }));
         let db = self.app.state::<Db>();
         let saved = db::save(&db.0.lock().unwrap(), clip, source.as_ref(), now_ms());
         saved.map_err(|e| e.to_string())
@@ -91,6 +91,9 @@ impl ClipboardHandler for Watcher {
 
         match self.save(&content) {
             Ok(clip) => {
+                if clip.kind != "text" {
+                    crate::ocr::queue(&self.app, clip.id);
+                }
                 let _ = self.app.emit(CLIP_ADDED_EVENT, clip);
             }
             Err(e) => eprintln!("[clipboard] cannot save clip: {e}"),

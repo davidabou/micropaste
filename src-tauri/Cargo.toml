@@ -38,6 +38,7 @@ tauri-plugin-autostart = "2.7.0"
 tauri-plugin-single-instance = "2.5.3"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "gif", "bmp"] }
 tauri-plugin-global-shortcut = "2"
+tauri-plugin-dialog = "2"
 
 [lints.clippy]
 dbg_macro = "deny"
@@ -55,4 +56,4 @@ strip = true
 [target."cfg(windows)".dependencies]
 webview2-com = "0.39"
 clipboard-win = "5.4"
-windows = { version = "0.62", features = ["Win32_Foundation", "Win32_System_DataExchange", "Win32_UI_WindowsAndMessaging", "Win32_System_Threading", "Win32_Storage_FileSystem", "Win32_UI_Shell", "Win32_Graphics_Gdi", "Win32_Storage_Packaging_Appx", "Win32_System_Com", "Win32_System_Diagnostics_ToolHelp", "Win32_System_LibraryLoader", "Win32_UI_HiDpi"] }
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_System_DataExchange", "Win32_UI_WindowsAndMessaging", "Win32_System_Threading", "Win32_Storage_FileSystem", "Win32_UI_Shell", "Win32_Graphics_Gdi", "Win32_Storage_Packaging_Appx", "Win32_System_Com", "Win32_System_Diagnostics_ToolHelp", "Win32_System_LibraryLoader", "Win32_UI_HiDpi", "Media_Ocr", "Graphics_Imaging", "Storage_Streams"] }
