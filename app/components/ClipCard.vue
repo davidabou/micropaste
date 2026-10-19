@@ -153,12 +153,11 @@ const isFileGroup = computed(() => (files.value?.length ?? 0) > 1)
 const filePreviews = [0, 1, 2].map(i => useFilePreview(() => files.value?.[i] ?? null, visible))
 const filePreview = filePreviews[0]!
 const fileThumbnail = computed(() =>
-  !isFileGroup.value && filePreview.value?.thumbnail ? filePreview.value.image : null
+  !isFileGroup.value && filePreview.value?.thumbnail && (!filePreview.value.media || filePreview.value.media === 'animation') ? filePreview.value.image : null
 )
-const fileTitle = computed(() => {
-  if (!files.value) return null
-  return isFileGroup.value ? `${files.value.length} items` : fileName(files.value[0]!)
-})
+const SPROCKETS = 'linear-gradient(to bottom, transparent 3px, rgb(255 255 255 / 0.85) 3px 7px, transparent 7px) 50% 0 / 4px 10px repeat-y rgb(0 0 0 / 0.45)'
+const fileMedia = computed(() => (isFileGroup.value ? null : filePreview.value?.media ?? null))
+const fileTitle = computed(() => files.value?.map(fileName).join(', ') ?? null)
 
 const STACK_LAYOUTS: Record<number, { rotate: number, x: number }[]> = {
   2: [{ rotate: 5, x: 10 }, { rotate: -5, x: -10 }],
@@ -178,7 +177,7 @@ const title = computed(() => (link.value ? linkLabel(link.value) : fileTitle.val
 const isList = computed(() => props.layout === 'list')
 const listTitle = computed(() => {
   if (title.value) return title.value
-  if (isImage.value) return props.clip.width && props.clip.height ? `Image ${props.clip.width} × ${props.clip.height}` : 'Image'
+  if (isImage.value) return props.clip.width && props.clip.height ? `Image (${props.clip.width} × ${props.clip.height})` : 'Image'
   return props.clip.content.trim().replace(/\s+/g, ' ')
 })
 const listTextMask = computed(() => {
@@ -229,10 +228,22 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
           </div>
           <img v-else-if="svgSrc" :src="svgSrc" alt="" draggable="false" class="size-6 object-contain">
           <Icon v-else-if="link" name="gravity-ui:globe" class="text-[20px] opacity-50" />
-          <img v-else-if="filePreview?.image" :src="filePreview.image" alt="" draggable="false" class="animate-fade-in size-7 object-contain">
+          <img
+            v-else-if="filePreview?.image"
+            :src="filePreview.image"
+            alt=""
+            draggable="false"
+            class="animate-fade-in size-7"
+            :class="fileMedia && filePreview.thumbnail ? 'rounded-sm object-cover shadow-sm' : 'object-contain'"
+          >
           <Icon v-else-if="files && filePreview" name="gravity-ui:file-xmark" class="animate-fade-in text-[20px] opacity-50" />
           <Icon v-else-if="files" name="gravity-ui:file" class="text-[20px] opacity-20" />
           <Icon v-else name="gravity-ui:text-align-left" class="text-[20px] opacity-50" />
+          <div v-if="fileMedia === 'video' && filePreview?.thumbnail" class="absolute inset-0 flex items-center justify-center">
+            <div class="flex size-5 items-center justify-center rounded-full bg-black/50 text-white">
+              <Icon name="gravity-ui:play-fill" class="text-[10px]" />
+            </div>
+          </div>
         </div>
         <div class="min-w-0 flex-1" :style="actionsShown ? { maskImage: listTextMask } : undefined">
           <p class="truncate text-sm font-medium">
@@ -242,6 +253,7 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
             <Tooltip :content="clip.sourceAppName ?? 'Unknown app'">
               <AppIcon :path="clip.sourceAppPath" />
             </Tooltip>
+            <Icon v-if="clip.favorite" name="gravity-ui:star-fill" aria-label="Favorite" class="shrink-0 text-[11px] opacity-60" />
             <Tooltip :content="copiedAt">
               <time class="shrink-0 opacity-60">{{ timeAgo }}</time>
             </Tooltip>
@@ -282,9 +294,12 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
           <div v-else-if="svgSrc" class="absolute inset-0 flex items-center justify-center">
             <img :src="svgSrc" alt="" draggable="false" class="size-24 object-contain">
           </div>
-          <div v-else-if="link" class="absolute inset-0 flex items-center justify-center">
+          <div v-else-if="link" class="absolute inset-0 flex items-center justify-center pb-10">
+            <div v-if="linkPreview?.icon" class="flex size-14 items-center justify-center rounded-2xl bg-white shadow-sm dark:bg-white/[8.37%]">
+              <ClipImage :file="linkPreview.icon" class="size-8 object-contain" />
+            </div>
             <!-- Nuxt Icon sets width and height to 1em, over Tailwind size utilities -->
-            <Icon name="gravity-ui:globe" class="text-[64px] opacity-40" />
+            <Icon v-else name="gravity-ui:globe" class="text-[64px] opacity-40" />
           </div>
           <div v-else-if="isFileGroup" class="absolute inset-0 flex items-center justify-center pb-10">
             <div class="relative isolate size-20">
@@ -308,7 +323,22 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
             </div>
           </div>
           <div v-else-if="files" class="absolute inset-0 flex items-center justify-center pb-10">
-            <img v-if="filePreview?.image" :src="filePreview.image" alt="" draggable="false" class="animate-fade-in size-16 object-contain">
+            <img
+              v-if="fileMedia === 'audio' && filePreview?.thumbnail && filePreview.image"
+              :src="filePreview.image"
+              alt=""
+              draggable="false"
+              class="animate-fade-in size-24 rounded-md object-cover shadow-md ring-1 ring-black/10 dark:ring-white/10"
+            >
+            <div
+              v-else-if="fileMedia === 'video' && filePreview?.thumbnail && filePreview.image"
+              class="animate-fade-in relative aspect-video w-36 overflow-hidden rounded-md shadow-md ring-1 ring-black/10 dark:ring-white/10"
+            >
+              <img :src="filePreview.image" alt="" draggable="false" class="size-full object-cover">
+              <div class="absolute inset-y-0 left-0 w-2.5" :style="{ background: SPROCKETS }" />
+              <div class="absolute inset-y-0 right-0 w-2.5" :style="{ background: SPROCKETS }" />
+            </div>
+            <img v-else-if="filePreview?.image" :src="filePreview.image" alt="" draggable="false" class="animate-fade-in size-16 object-contain">
             <Icon v-else-if="filePreview" name="gravity-ui:file-xmark" class="animate-fade-in text-[64px] opacity-40" />
             <Icon v-else name="gravity-ui:file" class="text-[64px] opacity-15" />
           </div>
@@ -331,6 +361,13 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
               <Tooltip :content="clip.sourceAppName ?? 'Unknown app'">
                 <AppIcon :path="clip.sourceAppPath" />
               </Tooltip>
+              <Icon
+                v-if="clip.favorite"
+                name="gravity-ui:star-fill"
+                aria-label="Favorite"
+                class="shrink-0 text-[11px]"
+                :class="hasCover ? 'opacity-80' : 'opacity-60'"
+              />
               <Tooltip :content="copiedAt">
                 <time class="truncate" :class="hasCover ? 'opacity-80' : 'opacity-60'">{{ timeAgo }}</time>
               </Tooltip>
