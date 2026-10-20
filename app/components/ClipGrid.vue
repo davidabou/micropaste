@@ -66,10 +66,12 @@ watch(tileDragging, (dragging) => {
 
 const MIN_PAGE_SIZE = 24
 const end = useTemplateRef<HTMLElement>('end')
+const scroller = () => end.value?.closest<HTMLElement>('[data-reka-scroll-area-viewport]') ?? null
 function pageSize() {
   const grid = end.value?.parentElement
-  if (!grid) return MIN_PAGE_SIZE
-  const { clientWidth: width, clientHeight: height } = grid
+  const height = scroller()?.clientHeight
+  if (!grid || height === undefined) return MIN_PAGE_SIZE
+  const width = grid.clientWidth
   const count = props.layout === 'list'
     ? Math.ceil(height / 60) + 2
     : Math.max(1, Math.floor((width - 16 + 8) / 208)) * (Math.ceil(height / 184) + 2)
@@ -80,7 +82,7 @@ const renderedClips = computed(() => props.clips.slice(0, renderedCount.value))
 
 watch(() => props.layout, async () => {
   const grid = end.value?.parentElement
-  grid?.scrollTo({ top: 0 })
+  scroller()?.scrollTo({ top: 0 })
   renderedCount.value = pageSize()
   await nextTick()
   if (grid && !props.loading) animate(grid, { opacity: [0, 1], y: [12, 0] }, { type: 'spring', bounce: 0, visualDuration: 0.25 })
@@ -103,7 +105,7 @@ onMounted(() => {
     if (!entry?.isIntersecting || renderedCount.value >= props.clips.length) return
     renderedCount.value += pageSize()
     checkEnd()
-  }, { root: end.value?.parentElement, rootMargin: '400px' })
+  }, { root: scroller(), rootMargin: '400px' })
   renderedCount.value = pageSize()
   if (end.value) observer.observe(end.value)
 })
@@ -137,75 +139,77 @@ function onRemoveFrom(clip: Clip, collection: number) {
 </script>
 
 <template>
-  <Motion
-    layout-scroll
-    data-clip-scroller
-    class="absolute inset-0 grid auto-rows-min overflow-y-auto p-2 text-xs"
-    :class="layout === 'list' ? 'grid-cols-1 gap-1' : 'grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2'"
-  >
-    <LayoutGroup :key="layout">
-      <AnimatePresence :initial="false">
-        <Motion
-          v-for="clip in renderedClips"
-          :key="clip.id"
-          layout="position"
-          :initial="clip.createdAt > shownSince ? { opacity: 0, scale: 0.95 } : false"
-          :animate="{ opacity: 1, scale: 1 }"
-          :exit="tileExit"
-          :transition="tileTransition"
-          @dragover="onTileOver($event, clip)"
-        >
-          <ClipContextMenu
-            :clip="clip"
-            :collection="collection"
-            @copy="cards.get(clip.id)?.copy()"
-            @copy-text="copyImageText(clip)"
-            @save="saveAs(clip)"
-            @info="emit('info', clip)"
-            @favorite="emit('favorite', clip)"
-            @delete="pending = { clip: clip.id, action: 'delete' }"
-            @add="emit('add', clip, $event)"
-            @remove-from="onRemoveFrom(clip, $event)"
-          >
-            <ClipCard
-              :ref="card => setCard(clip.id, card)"
-              :clip="clip"
-              :in-collection="collection !== null"
-              :layout="layout"
-              class="w-full"
-              :confirm="pending?.clip === clip.id ? pending.action : null"
-              @copy="onCopy(clip)"
-              @info="emit('info', clip)"
-              @favorite="emit('favorite', clip)"
-              @ask-delete="askDelete(clip)"
-              @delete="confirmDelete(clip)"
-              @cancel-delete="pending = null"
-            />
-          </ClipContextMenu>
-        </Motion>
-      </AnimatePresence>
-    </LayoutGroup>
-
-    <template v-if="loading && !clips.length">
+  <Motion class="absolute inset-0">
+    <ScrollArea layout-scroll class="size-full">
       <div
-        v-for="i in (layout === 'list' ? 10 : 12)"
-        :key="i"
-        class="flex rounded-lg border border-black/[5.78%] bg-black/[3.73%] dark:border-white/6 dark:bg-white/[6.05%]"
-        :class="layout === 'list' ? 'h-14 items-center gap-3 pr-3 pl-2' : 'h-44 flex-col justify-end p-3'"
+        class="relative grid auto-rows-min p-2 text-xs"
+        :class="layout === 'list' ? 'grid-cols-1 gap-1' : 'grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2'"
       >
-        <div v-if="layout === 'list'" class="skeleton size-10 shrink-0 rounded-md" />
-        <div class="flex min-w-0 flex-1 flex-col gap-2" :class="layout !== 'list' && 'justify-end'">
-          <div class="skeleton h-3.5 rounded-sm" :style="{ width: `${45 + (i * 37) % 40}%` }" />
-          <div class="flex items-center gap-1.5">
-            <div class="skeleton size-4 rounded-sm" />
-            <div class="skeleton h-2.5 w-12 rounded-sm" />
+        <LayoutGroup :key="layout">
+          <AnimatePresence :initial="false">
+            <Motion
+              v-for="clip in renderedClips"
+              :key="clip.id"
+              layout="position"
+              :initial="clip.createdAt > shownSince ? { opacity: 0, scale: 0.95 } : false"
+              :animate="{ opacity: 1, scale: 1 }"
+              :exit="tileExit"
+              :transition="tileTransition"
+              @dragover="onTileOver($event, clip)"
+            >
+              <ClipContextMenu
+                :clip="clip"
+                :collection="collection"
+                @copy="cards.get(clip.id)?.copy()"
+                @copy-text="copyImageText(clip)"
+                @save="saveAs(clip)"
+                @info="emit('info', clip)"
+                @favorite="emit('favorite', clip)"
+                @delete="pending = { clip: clip.id, action: 'delete' }"
+                @add="emit('add', clip, $event)"
+                @remove-from="onRemoveFrom(clip, $event)"
+              >
+                <ClipCard
+                  :ref="card => setCard(clip.id, card)"
+                  :clip="clip"
+                  :in-collection="collection !== null"
+                  :layout="layout"
+                  class="w-full"
+                  :confirm="pending?.clip === clip.id ? pending.action : null"
+                  @copy="onCopy(clip)"
+                  @info="emit('info', clip)"
+                  @favorite="emit('favorite', clip)"
+                  @ask-delete="askDelete(clip)"
+                  @delete="confirmDelete(clip)"
+                  @cancel-delete="pending = null"
+                />
+              </ClipContextMenu>
+            </Motion>
+          </AnimatePresence>
+        </LayoutGroup>
+
+        <template v-if="loading && !clips.length">
+          <div
+            v-for="i in (layout === 'list' ? 10 : 12)"
+            :key="i"
+            class="flex rounded-lg border border-black/[5.78%] bg-black/[3.73%] dark:border-white/6 dark:bg-white/[6.05%]"
+            :class="layout === 'list' ? 'h-14 items-center gap-3 pr-3 pl-2' : 'h-44 flex-col justify-end p-3'"
+          >
+            <div v-if="layout === 'list'" class="skeleton size-10 shrink-0 rounded-md" />
+            <div class="flex min-w-0 flex-1 flex-col gap-2" :class="layout !== 'list' && 'justify-end'">
+              <div class="skeleton h-3.5 rounded-sm" :style="{ width: `${45 + (i * 37) % 40}%` }" />
+              <div class="flex items-center gap-1.5">
+                <div class="skeleton size-4 rounded-sm" />
+                <div class="skeleton h-2.5 w-12 rounded-sm" />
+              </div>
+            </div>
           </div>
-        </div>
+        </template>
+
+        <div ref="end" class="col-span-full h-px" />
+
+        <slot />
       </div>
-    </template>
-
-    <div ref="end" class="col-span-full h-px" />
-
-    <slot />
+    </ScrollArea>
   </Motion>
 </template>

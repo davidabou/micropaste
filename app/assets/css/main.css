@@ -4,9 +4,14 @@
     --font-sans: 'Outfit', 'Segoe UI', sans-serif;
     --font-icons: 'Segoe Fluent Icons', 'Segoe MDL2 Assets';
     --animate-fade-in: fade-in 0.2s ease-out;
+    --animate-fade-out: fade-out 0.2s ease-in forwards;
 
     @keyframes fade-in {
         from { opacity: 0; }
+    }
+
+    @keyframes fade-out {
+        to { opacity: 0; }
     }
 }
 
@@ -19,6 +24,11 @@ html {
     color: rgb(0 0 0 / 0.9);
     --scrollbar-thumb: rgb(0 0 0 / 0.45);
     scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+
+/* Reka adds this rule only while one of its own viewports is mounted */
+[data-reka-scroll-area-viewport] {
+    scrollbar-width: none;
 }
 
 @media (prefers-color-scheme: dark) {

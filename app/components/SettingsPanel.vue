@@ -195,10 +195,10 @@ const thumbSpring = { type: 'spring', bounce: 0.15, duration: 0.3 } as const
         <Motion
           :initial="{ x: '105%' }"
           :animate="panelAnimation"
-          class="fixed inset-y-2 right-2 z-50 flex w-96 flex-col overflow-hidden rounded-lg border border-black/[5.78%] bg-[#f9f9f9] text-sm shadow-2xl dark:border-black/20 dark:bg-[#2c2c2c]"
+          class="fixed inset-y-0 right-0 z-50 flex w-96 flex-col overflow-hidden border-l border-black/[5.78%] bg-[#f9f9f9] text-sm shadow-xl dark:border-black/20 dark:bg-[#2c2c2c]"
           @animation-complete="onPanelAnimated"
         >
-          <header class="flex items-center gap-2 px-4 pt-4 pb-3">
+          <header class="flex h-12 shrink-0 items-center gap-2 pr-2 pl-4">
             <DialogTitle class="min-w-0 flex-1 truncate text-base font-medium">
               Settings
             </DialogTitle>
@@ -207,127 +207,126 @@ const thumbSpring = { type: 'spring', bounce: 0.15, duration: 0.3 } as const
             </DialogClose>
           </header>
 
-          <div
-            v-if="settings"
-            class="grid min-h-0 flex-1 auto-rows-min grid-cols-[1fr_9rem] items-center gap-x-4 gap-y-5 overflow-y-auto px-4 pt-1 pb-4"
-          >
-            <div class="min-w-0">
-              <p class="font-medium">
-                Shortcut
-              </p>
-              <p class="text-xs opacity-60">
-                Shows or hides Micropaste from any app
-              </p>
-              <p v-if="shortcutError" class="mt-1 text-xs text-[#c42b1c] dark:text-[#ff99a4]">
-                {{ shortcutError }}
-              </p>
-            </div>
-            <Button variant="filled" class="w-full" @click="recording ? stopRecording() : startRecording()" @blur="stopRecording">
-              <span class="truncate" :class="recording && 'opacity-60'">{{ recording ? 'Press a shortcut…' : shortcutLabel }}</span>
-            </Button>
-
-            <div ref="retentionRow" class="relative col-span-2 grid grid-cols-subgrid items-center">
-              <Motion class="min-w-0" :animate="pendingRetention ? labelHidden : labelShown">
+          <ScrollArea v-if="settings" class="min-h-0 flex-1">
+            <div class="grid auto-rows-min grid-cols-[1fr_9rem] items-center gap-x-4 gap-y-5 px-4 pt-1 pb-4">
+              <div class="min-w-0">
                 <p class="font-medium">
-                  Keep history
+                  Shortcut
                 </p>
                 <p class="text-xs opacity-60">
-                  Favorites and clips in collections are always kept
+                  Shows or hides Micropaste from any app
                 </p>
-              </Motion>
-              <DropdownMenuRoot v-model:open="retentionMenuOpen">
-                <DropdownMenuTrigger as-child>
-                  <Button variant="filled" class="w-full" :class="confirmShown && 'invisible'">
+                <p v-if="shortcutError" class="mt-1 text-xs text-[#c42b1c] dark:text-[#ff99a4]">
+                  {{ shortcutError }}
+                </p>
+              </div>
+              <Button variant="filled" class="w-full" @click="recording ? stopRecording() : startRecording()" @blur="stopRecording">
+                <span class="truncate font-normal" :class="recording && 'opacity-60'">{{ recording ? 'Press a shortcut…' : shortcutLabel }}</span>
+              </Button>
+
+              <div ref="retentionRow" class="relative col-span-2 grid grid-cols-subgrid items-center">
+                <Motion class="min-w-0" :animate="pendingRetention ? labelHidden : labelShown">
+                  <p class="font-medium">
+                    Keep history
+                  </p>
+                  <p class="text-xs opacity-60">
+                    Favorites and clips in collections are always kept
+                  </p>
+                </Motion>
+                <DropdownMenuRoot v-model:open="retentionMenuOpen">
+                  <DropdownMenuTrigger as-child>
+                    <Button variant="filled" class="w-full" :class="confirmShown && 'invisible'">
+                      <span class="flex-1 truncate text-left font-normal">{{ retentionLabel }}</span>
+                      <Icon name="gravity-ui:chevron-down" class="-mr-1 text-sm opacity-60" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuPortal v-if="retentionMenuOpened" force-mount>
+                    <AnimatePresence>
+                      <DropdownMenuContent v-if="retentionMenuOpen" force-mount as-child align="end" :side-offset="4">
+                        <Motion
+                          :class="menuContent"
+                          :style="{ transformOrigin: 'var(--reka-dropdown-menu-content-transform-origin)' }"
+                          v-bind="menuMotion"
+                        >
+                          <DropdownMenuRadioGroup v-model="retention">
+                            <DropdownMenuRadioItem
+                              v-for="option in retentionOptions"
+                              :key="option.value"
+                              :value="option.value"
+                              :class="menuItem"
+                            >
+                              <span class="flex w-3 items-center justify-center">
+                                <DropdownMenuItemIndicator class="flex">
+                                  <Icon name="gravity-ui:check" class="text-sm" />
+                                </DropdownMenuItemIndicator>
+                              </span>
+                              {{ option.label }}
+                            </DropdownMenuRadioItem>
+                          </DropdownMenuRadioGroup>
+                        </Motion>
+                      </DropdownMenuContent>
+                    </AnimatePresence>
+                  </DropdownMenuPortal>
+                </DropdownMenuRoot>
+                <Motion
+                  v-if="confirmShown"
+                  data-retention-confirm
+                  class="absolute inset-y-0 right-0 my-auto flex items-center gap-2 overflow-hidden bg-black/[5.78%] pr-1.5 pl-3 dark:bg-white/[8.37%]"
+                  :style="{ borderRadius: '6px' }"
+                  :initial="{ width: CONTROL_WIDTH, height: 32 }"
+                  :animate="pendingRetention ? { width: retentionRowWidth, height: 40 } : { width: CONTROL_WIDTH, height: 32 }"
+                  :transition="morph"
+                  @animation-complete="onConfirmAnimated"
+                >
+                  <Motion
+                    class="pointer-events-none absolute inset-y-0 right-0 flex items-center gap-2 px-3 text-xs"
+                    :style="{ width: `${CONTROL_WIDTH}px` }"
+                    :initial="{ opacity: 1, scale: 1 }"
+                    :animate="pendingRetention ? buttonContentHidden : buttonContentShown"
+                  >
                     <span class="flex-1 truncate text-left">{{ retentionLabel }}</span>
                     <Icon name="gravity-ui:chevron-down" class="-mr-1 text-sm opacity-60" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuPortal v-if="retentionMenuOpened" force-mount>
-                  <AnimatePresence>
-                    <DropdownMenuContent v-if="retentionMenuOpen" force-mount as-child align="end" :side-offset="4">
-                      <Motion
-                        :class="menuContent"
-                        :style="{ transformOrigin: 'var(--reka-dropdown-menu-content-transform-origin)' }"
-                        v-bind="menuMotion"
-                      >
-                        <DropdownMenuRadioGroup v-model="retention">
-                          <DropdownMenuRadioItem
-                            v-for="option in retentionOptions"
-                            :key="option.value"
-                            :value="option.value"
-                            :class="menuItem"
-                          >
-                            <span class="flex w-3 items-center justify-center">
-                              <DropdownMenuItemIndicator class="flex">
-                                <Icon name="gravity-ui:check" class="text-sm" />
-                              </DropdownMenuItemIndicator>
-                            </span>
-                            {{ option.label }}
-                          </DropdownMenuRadioItem>
-                        </DropdownMenuRadioGroup>
-                      </Motion>
-                    </DropdownMenuContent>
-                  </AnimatePresence>
-                </DropdownMenuPortal>
-              </DropdownMenuRoot>
-              <Motion
-                v-if="confirmShown"
-                data-retention-confirm
-                class="absolute inset-y-0 right-0 my-auto flex items-center gap-2 overflow-hidden bg-black/[5.78%] pr-1.5 pl-3 dark:bg-white/[8.37%]"
-                :style="{ borderRadius: '6px' }"
-                :initial="{ width: CONTROL_WIDTH, height: 32 }"
-                :animate="pendingRetention ? { width: retentionRowWidth, height: 40 } : { width: CONTROL_WIDTH, height: 32 }"
-                :transition="morph"
-                @animation-complete="onConfirmAnimated"
+                  </Motion>
+                  <Motion
+                    v-if="pendingRetention"
+                    class="flex min-w-0 flex-1 items-center gap-2"
+                    :initial="{ opacity: 0 }"
+                    :animate="{ opacity: 1, transition: { delay: 0.1, duration: 0.15 } }"
+                  >
+                    <span class="min-w-0 flex-1 truncate text-xs">This will delete {{ clipCount(pendingRetention.count) }}.</span>
+                    <Button size="sm" @click="pendingRetention = null">
+                      Cancel
+                    </Button>
+                    <Button size="sm" @click="applyRetention(pendingRetention.days)">
+                      Apply
+                    </Button>
+                  </Motion>
+                </Motion>
+              </div>
+
+              <div class="min-w-0">
+                <p class="font-medium">
+                  Launch at startup
+                </p>
+                <p class="text-xs opacity-60">
+                  Starts in the background when you sign in to Windows
+                </p>
+              </div>
+              <SwitchRoot
+                :model-value="settings.launchAtStartup"
+                class="flex h-5 w-9 shrink-0 cursor-pointer items-center justify-self-end rounded-full bg-black/9 transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current data-[state=checked]:bg-black/85 dark:bg-white/11 dark:data-[state=checked]:bg-white"
+                @update:model-value="setLaunchAtStartup"
               >
                 <Motion
-                  class="pointer-events-none absolute inset-y-0 right-0 flex items-center gap-2 px-3 text-xs font-medium"
-                  :style="{ width: `${CONTROL_WIDTH}px` }"
-                  :initial="{ opacity: 1, scale: 1 }"
-                  :animate="pendingRetention ? buttonContentHidden : buttonContentShown"
-                >
-                  <span class="flex-1 truncate text-left">{{ retentionLabel }}</span>
-                  <Icon name="gravity-ui:chevron-down" class="-mr-1 text-sm opacity-60" />
-                </Motion>
-                <Motion
-                  v-if="pendingRetention"
-                  class="flex min-w-0 flex-1 items-center gap-2"
-                  :initial="{ opacity: 0 }"
-                  :animate="{ opacity: 1, transition: { delay: 0.1, duration: 0.15 } }"
-                >
-                  <span class="min-w-0 flex-1 truncate text-xs font-medium">This will delete {{ clipCount(pendingRetention.count) }}.</span>
-                  <Button size="sm" @click="pendingRetention = null">
-                    Cancel
-                  </Button>
-                  <Button size="sm" @click="applyRetention(pendingRetention.days)">
-                    Apply
-                  </Button>
-                </Motion>
-              </Motion>
+                  class="size-3.5 rounded-full bg-white shadow-sm"
+                  :class="settings.launchAtStartup ? 'dark:bg-[#2c2c2c]' : 'dark:bg-white/80'"
+                  :initial="false"
+                  :animate="{ x: settings.launchAtStartup ? 19 : 3 }"
+                  :transition="thumbSpring"
+                />
+              </SwitchRoot>
             </div>
-
-            <div class="min-w-0">
-              <p class="font-medium">
-                Launch at startup
-              </p>
-              <p class="text-xs opacity-60">
-                Starts in the background when you sign in to Windows
-              </p>
-            </div>
-            <SwitchRoot
-              :model-value="settings.launchAtStartup"
-              class="flex h-5 w-9 shrink-0 cursor-pointer items-center justify-self-end rounded-full bg-black/9 transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current data-[state=checked]:bg-black/85 dark:bg-white/11 dark:data-[state=checked]:bg-white"
-              @update:model-value="setLaunchAtStartup"
-            >
-              <Motion
-                class="size-3.5 rounded-full bg-white shadow-sm"
-                :class="settings.launchAtStartup ? 'dark:bg-[#2c2c2c]' : 'dark:bg-white/80'"
-                :initial="false"
-                :animate="{ x: settings.launchAtStartup ? 19 : 3 }"
-                :transition="thumbSpring"
-              />
-            </SwitchRoot>
-          </div>
+          </ScrollArea>
         </Motion>
       </DialogContent>
     </DialogPortal>

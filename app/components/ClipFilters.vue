@@ -57,7 +57,7 @@ watch(sourceOpen, (open) => {
 })
 
 // Same frame as the search bar
-const fieldClass = 'flex h-8 w-32 shrink-0 items-center gap-1.5 rounded-md border border-black/[5.78%] bg-black/[3.73%] pl-2.5 pr-1.5 text-xs font-medium transition-colors duration-100 hover:bg-black/[5.78%] focus-within:bg-black/[5.78%] dark:border-white/6 dark:bg-white/[6.05%] dark:hover:bg-white/[8.37%] dark:focus-within:bg-white/[8.37%]'
+const fieldClass = 'flex h-8 w-32 shrink-0 items-center gap-1.5 rounded-md border border-black/[5.78%] bg-black/[3.73%] pl-2.5 pr-1.5 text-xs transition-colors duration-100 hover:bg-black/[5.78%] focus-within:bg-black/[5.78%] dark:border-white/6 dark:bg-white/[6.05%] dark:hover:bg-white/[8.37%] dark:focus-within:bg-white/[8.37%]'
 </script>
 
 <template>
@@ -121,30 +121,31 @@ const fieldClass = 'flex h-8 w-32 shrink-0 items-center gap-1.5 rounded-md borde
         <ComboboxContent v-if="sourceOpen" force-mount as-child position="popper" align="start" :side-offset="4">
           <Motion
             :class="menuContent"
-            class="max-h-80 overflow-y-auto"
             :style="{ transformOrigin: 'var(--reka-combobox-content-transform-origin)' }"
             v-bind="menuMotion"
           >
-            <ComboboxViewport>
-              <ComboboxItem :value="ALL" :class="menuItem">
-                <Icon name="gravity-ui:circles-4-square" :class="menuIcon" />
-                All apps
-                <ComboboxItemIndicator class="ml-auto flex pl-3">
-                  <Icon name="gravity-ui:check" class="text-sm" />
-                </ComboboxItemIndicator>
-              </ComboboxItem>
-              <ComboboxSeparator v-if="!typing" :class="menuSeparator" />
-              <ComboboxItem v-for="app in sources" :key="app.name" :value="app.name" :class="menuItem">
-                <AppIcon :path="app.path" />
-                <span class="max-w-48 truncate">{{ app.name }}</span>
-                <ComboboxItemIndicator class="ml-auto flex pl-3">
-                  <Icon name="gravity-ui:check" class="text-sm" />
-                </ComboboxItemIndicator>
-              </ComboboxItem>
-              <ComboboxEmpty :class="menuItem" class="opacity-60">
-                No apps found
-              </ComboboxEmpty>
-            </ComboboxViewport>
+            <ScrollArea class="-m-1 rounded-[inherit]" viewport-class="max-h-80 p-1">
+              <ComboboxViewport>
+                <ComboboxItem :value="ALL" :class="menuItem">
+                  <Icon name="gravity-ui:circles-4-square" :class="menuIcon" />
+                  All apps
+                  <ComboboxItemIndicator class="ml-auto flex pl-3">
+                    <Icon name="gravity-ui:check" class="text-sm" />
+                  </ComboboxItemIndicator>
+                </ComboboxItem>
+                <ComboboxSeparator v-if="!typing" :class="menuSeparator" />
+                <ComboboxItem v-for="app in sources" :key="app.name" :value="app.name" :class="menuItem">
+                  <AppIcon :path="app.path" />
+                  <span class="max-w-48 truncate">{{ app.name }}</span>
+                  <ComboboxItemIndicator class="ml-auto flex pl-3">
+                    <Icon name="gravity-ui:check" class="text-sm" />
+                  </ComboboxItemIndicator>
+                </ComboboxItem>
+                <ComboboxEmpty :class="menuItem" class="opacity-60">
+                  No apps found
+                </ComboboxEmpty>
+              </ComboboxViewport>
+            </ScrollArea>
           </Motion>
         </ComboboxContent>
       </AnimatePresence>

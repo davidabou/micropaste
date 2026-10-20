@@ -76,10 +76,6 @@ const historyTransition = computed(() => (historySwipes.value ? swipeTransition 
 
 const detailsClip = ref<Clip | null>(null)
 const settingsOpen = ref(false)
-async function toggleDetailsFavorite(clip: Clip) {
-  const updated = await toggleFavorite(clip)
-  if (detailsClip.value?.id === updated.id) detailsClip.value = updated
-}
 
 const collectionName = (id: number) => collections.value.find(c => c.id === id)?.name ?? 'collection'
 async function addTo(clip: Clip, collectionId: number) {
@@ -276,7 +272,7 @@ useEventListener('dragleave', onDragLeave)
       </div>
     </div>
 
-    <ClipDetails :clip="detailsClip" @close="detailsClip = null" @copy="copy" @favorite="toggleDetailsFavorite" />
+    <ClipDetails :clip="detailsClip" @close="detailsClip = null" @copy="copy" />
     <SettingsPanel :open="settingsOpen" @close="settingsOpen = false" />
   </TooltipProvider>
 </template>

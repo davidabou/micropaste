@@ -136,7 +136,7 @@ const color = computed(() => (props.clip.kind === 'text' ? copiedColor(props.cli
 const link = computed(() => (props.clip.kind === 'text' ? copiedLink(props.clip.content) : null))
 const root = useTemplateRef<HTMLElement>('root')
 // Relative to the grid: it slides in from off-screen
-const scroller = computed(() => root.value?.closest<HTMLElement>('[data-clip-scroller]') ?? null)
+const scroller = computed(() => root.value?.closest<HTMLElement>('[data-reka-scroll-area-viewport]') ?? null)
 const visible = ref(false)
 const { stop: stopWatchingVisibility } = useIntersectionObserver(root, ([entry]) => {
   if (!entry?.isIntersecting) return
@@ -394,7 +394,7 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
         >
           <Motion
             as="span"
-            class="flex max-w-full min-w-0 items-center gap-1.5 px-3 text-sm font-semibold"
+            class="flex max-w-full min-w-0 items-center gap-1.5 px-3 text-sm font-medium"
             :initial="{ scale: 0.85 }"
             :animate="{ scale: 1 }"
             :transition="{ type: 'spring', bounce: 0.4, duration: 0.35 }"
@@ -423,7 +423,7 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
           :animate="{ scale: 1 }"
           :transition="{ type: 'spring', bounce: 0.4, duration: 0.35 }"
         >
-          <p class="text-sm font-medium">
+          <p class="text-sm">
             {{ confirm === 'remove' ? 'Remove from this collection?' : 'Delete this clip?' }}
           </p>
           <div class="flex gap-2">

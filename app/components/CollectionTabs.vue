@@ -131,7 +131,7 @@ const tabLabelHidden = { opacity: 0, scale: 0.9, transition: { duration: 0.12 } 
 const tabLabelShown = { opacity: 1, scale: 1, transition: { duration: 0.15, delay: 0.15 } }
 
 // No overflow clipping on the tab itself (the name is truncated inside): the sliding pill would be cut
-const triggerBase = 'relative isolate flex h-8 items-center shrink-0 cursor-pointer rounded-md text-sm font-medium opacity-60 transition-opacity duration-100 hover:opacity-100 focus-visible:outline-2 focus-visible:outline-current data-[state=active]:opacity-100'
+const triggerBase = 'relative isolate flex h-8 items-center shrink-0 cursor-pointer rounded-md text-sm opacity-60 transition-opacity duration-100 hover:opacity-100 focus-visible:outline-2 focus-visible:outline-current data-[state=active]:opacity-100'
 const trigger = `${triggerBase} max-w-48 px-3`
 const iconTrigger = `${triggerBase} w-8 justify-center`
 
@@ -150,7 +150,7 @@ async function measureName() {
 onMounted(measureName)
 watch(draft, measureName, { flush: 'post' })
 const morphWidth = computed(() => ({ width: creating.value ? nameWidth.value : 32 }))
-const newNameText = 'h-8 shrink-0 bg-transparent px-3 text-sm font-medium outline-none placeholder:text-current placeholder:opacity-50'
+const newNameText = 'h-8 shrink-0 bg-transparent px-3 text-sm outline-none placeholder:text-current placeholder:opacity-50'
 
 const tabPop = {
   initial: { opacity: 0, scale: 0.6 },
@@ -162,197 +162,199 @@ const tabSlide = { type: 'spring', bounce: 0.2, duration: 0.4 } as const
 
 <template>
   <TabsRoot v-model="tab">
-    <TabsList class="relative flex items-center gap-1 overflow-x-auto px-2 pb-1">
-      <LayoutGroup>
-        <Tooltip content="Favorites">
-          <TabsTrigger value="favorites" aria-label="Favorites" :class="iconTrigger" @pointerenter="emit('prefetch', 'favorites')">
-            <Icon name="gravity-ui:star-fill" class="shrink-0 text-base" />
-            <TabPill v-if="tab === 'favorites'" />
+    <ScrollArea orientation="horizontal">
+      <TabsList class="relative flex items-center gap-1 px-2 pb-1">
+        <LayoutGroup>
+          <Tooltip content="Favorites">
+            <TabsTrigger value="favorites" aria-label="Favorites" :class="iconTrigger" @pointerenter="emit('prefetch', 'favorites')">
+              <Icon name="gravity-ui:star-fill" class="shrink-0 text-base" />
+              <TabPill v-if="tab === 'favorites'" />
+            </TabsTrigger>
+          </Tooltip>
+          <TabsTrigger value="history" :class="trigger">
+            <span class="flex min-w-0 items-baseline gap-1.5">
+              <span class="min-w-0 truncate">History</span>
+              <span class="shrink-0 text-xs font-normal tabular-nums opacity-60">{{ formatCount(historyCount) }}</span>
+            </span>
+            <TabPill v-if="tab === 'history'" />
           </TabsTrigger>
-        </Tooltip>
-        <TabsTrigger value="history" :class="trigger">
-          <span class="flex min-w-0 items-baseline gap-1.5">
-            <span class="min-w-0 truncate">History</span>
-            <span class="shrink-0 text-xs font-normal tabular-nums opacity-60">{{ formatCount(historyCount) }}</span>
-          </span>
-          <TabPill v-if="tab === 'history'" />
-        </TabsTrigger>
 
-        <ReorderGroup
-          as="div"
-          axis="x"
-          class="flex items-center gap-1"
-          :values="order"
-          @update:values="order = $event"
-        >
-          <AnimatePresence :initial="false">
-            <ReorderItem
-              v-for="collection in order"
-              :key="collection.id"
-              :value="collection"
-              as="div"
+          <ReorderGroup
+            as="div"
+            axis="x"
+            class="flex items-center gap-1"
+            :values="order"
+            @update:values="order = $event"
+          >
+            <AnimatePresence :initial="false">
+              <ReorderItem
+                v-for="collection in order"
+                :key="collection.id"
+                :value="collection"
+                as="div"
+                layout="position"
+                class="shrink-0 rounded-md transition-colors duration-100"
+                :class="dropTarget === collection.id && 'bg-black/8 dark:bg-white/11'"
+                :drag="editing === collection.id || deleteBubbleFor === collection.id ? false : 'x'"
+                :initial="tabPop.initial"
+                :animate="tabPop.animate"
+                :exit="tabPop.exit"
+                :transition="tabSlide"
+                @drag-start="draggingTab = true"
+                @drag-end="saveOrder"
+                @dragover="onTileOver($event, collection.id)"
+                @dragleave="onTileLeave($event, collection.id)"
+                @drop="onTileDrop($event, collection.id)"
+              >
+                <Motion
+                  v-if="deleteBubbleFor === collection.id"
+                  data-collection-delete-confirm
+                  class="relative flex h-8 items-center overflow-hidden bg-black/[5.78%] dark:bg-white/[8.37%]"
+                  :style="{ borderRadius: '6px' }"
+                  :initial="{ width: deleteFromWidth }"
+                  :animate="{ width: confirmingDelete === collection.id ? deleteToWidth || deleteFromWidth : deleteFromWidth }"
+                  :transition="morph"
+                  @animation-complete="onDeleteBubbleAnimated"
+                >
+                  <Motion
+                    class="pointer-events-none absolute inset-y-0 left-0 flex items-center px-3 text-sm"
+                    :initial="{ opacity: 1, scale: 1 }"
+                    :animate="confirmingDelete === collection.id ? tabLabelHidden : tabLabelShown"
+                  >
+                    <span class="flex items-baseline gap-1.5 whitespace-nowrap" :class="tab !== String(collection.id) && 'opacity-60'">
+                      <span class="max-w-36 truncate">{{ collection.name }}</span>
+                      <span class="text-xs font-normal tabular-nums opacity-60">{{ formatCount(collection.count) }}</span>
+                    </span>
+                  </Motion>
+                  <Motion
+                    v-if="confirmingDelete === collection.id"
+                    :ref="setDeleteContent"
+                    class="flex w-max shrink-0 items-center gap-3 px-3 whitespace-nowrap"
+                    :initial="{ opacity: 0 }"
+                    :animate="{ opacity: 1, transition: { delay: 0.1, duration: 0.15 } }"
+                  >
+                    <span class="text-sm">Delete “{{ collection.name }}”?</span>
+                    <button type="button" :class="textButton" @click="confirmingDelete = null">
+                      Cancel
+                    </button>
+                    <button type="button" :class="textButton" @click="confirmDelete(collection.id)">
+                      Delete
+                    </button>
+                  </Motion>
+                </Motion>
+                <Motion
+                  v-else-if="editing === collection.id"
+                  :initial="{ width: renameFromWidth || nameWidth }"
+                  :animate="{ width: nameWidth }"
+                  :transition="morph"
+                  :style="{ borderRadius: '6px' }"
+                  class="flex h-8 overflow-hidden bg-black/[5.78%] dark:bg-white/[8.37%]"
+                >
+                  <input
+                    :ref="setNameInput"
+                    v-model="draft"
+                    :class="newNameText"
+                    :style="{ width: `${nameWidth}px` }"
+                    spellcheck="false"
+                    @keydown.enter="commit"
+                    @keydown.esc.prevent="cancel"
+                    @blur="commit"
+                  >
+                </Motion>
+                <ContextMenuRoot
+                  v-else
+                  :open="menuOpenFor === collection.id"
+                  @update:open="menuOpenFor = $event ? collection.id : null"
+                >
+                  <ContextMenuTrigger as-child>
+                    <TabsTrigger :value="String(collection.id)" :data-collection-tab="collection.id" :class="trigger" @pointerenter="emit('prefetch', collection.id)">
+                      <span class="flex min-w-0 items-baseline gap-1.5">
+                        <span class="min-w-0 truncate">{{ collection.name }}</span>
+                        <span class="shrink-0 text-xs font-normal tabular-nums opacity-60">{{ formatCount(collection.count) }}</span>
+                      </span>
+                      <TabPill v-if="tab === String(collection.id)" />
+                    </TabsTrigger>
+                  </ContextMenuTrigger>
+                  <ContextMenuPortal force-mount>
+                    <AnimatePresence>
+                      <ContextMenuContent
+                        v-if="menuOpenFor === collection.id"
+                        force-mount
+                        as-child
+                        @close-auto-focus.prevent
+                      >
+                        <Motion :class="menuContent" v-bind="menuMotion">
+                          <ContextMenuItem :class="menuItem" @select="startEditing(collection.id, collection.name)">
+                            <Icon name="gravity-ui:pencil" :class="menuIcon" />
+                            Rename
+                          </ContextMenuItem>
+                          <ContextMenuItem :class="menuItem" @select="removeCollection(collection.id)">
+                            <Icon name="gravity-ui:trash-bin" :class="menuIcon" />
+                            Delete collection
+                          </ContextMenuItem>
+                        </Motion>
+                      </ContextMenuContent>
+                    </AnimatePresence>
+                  </ContextMenuPortal>
+                </ContextMenuRoot>
+              </ReorderItem>
+            </AnimatePresence>
+          </ReorderGroup>
+
+          <Tooltip content="New collection" :disabled="creating">
+            <Motion
               layout="position"
-              class="shrink-0 rounded-md transition-colors duration-100"
-              :class="dropTarget === collection.id && 'bg-black/8 dark:bg-white/11'"
-              :drag="editing === collection.id || deleteBubbleFor === collection.id ? false : 'x'"
-              :initial="tabPop.initial"
-              :animate="tabPop.animate"
-              :exit="tabPop.exit"
-              :transition="tabSlide"
-              @drag-start="draggingTab = true"
-              @drag-end="saveOrder"
-              @dragover="onTileOver($event, collection.id)"
-              @dragleave="onTileLeave($event, collection.id)"
-              @drop="onTileDrop($event, collection.id)"
+              :initial="false"
+              :animate="morphWidth"
+              :transition="morph"
+              :style="{ borderRadius: '6px' }"
+              class="relative flex h-8 shrink-0 items-center overflow-hidden transition-colors duration-100"
+              :class="creating ? 'bg-black/[5.78%] dark:bg-white/[8.37%]' : 'hover:bg-black/[3.73%] dark:hover:bg-white/[6.05%]'"
             >
-              <Motion
-                v-if="deleteBubbleFor === collection.id"
-                data-collection-delete-confirm
-                class="relative flex h-8 items-center overflow-hidden bg-black/[5.78%] dark:bg-white/[8.37%]"
-                :style="{ borderRadius: '6px' }"
-                :initial="{ width: deleteFromWidth }"
-                :animate="{ width: confirmingDelete === collection.id ? deleteToWidth || deleteFromWidth : deleteFromWidth }"
-                :transition="morph"
-                @animation-complete="onDeleteBubbleAnimated"
-              >
+              <span
+                ref="nameMirror"
+                aria-hidden="true"
+                class="pointer-events-none invisible absolute left-0 w-max px-3 text-sm whitespace-pre"
+              >{{ draft || NAME_PLACEHOLDER }}</span>
+              <AnimatePresence mode="popLayout" :initial="false">
                 <Motion
-                  class="pointer-events-none absolute inset-y-0 left-0 flex items-center px-3 text-sm font-medium"
-                  :initial="{ opacity: 1, scale: 1 }"
-                  :animate="confirmingDelete === collection.id ? tabLabelHidden : tabLabelShown"
+                  v-if="!creating"
+                  key="button"
+                  as="button"
+                  type="button"
+                  class="flex size-8 shrink-0 cursor-pointer items-center justify-center focus-visible:outline-2 focus-visible:outline-current"
+                  :initial="{ opacity: 0, scale: 0.5, rotate: -90 }"
+                  :animate="{ opacity: 1, scale: 1, rotate: 0 }"
+                  :exit="{ opacity: 0, scale: 0.5, rotate: 90 }"
+                  :transition="morph"
+                  @click="startEditing('new')"
                 >
-                  <span class="flex items-baseline gap-1.5 whitespace-nowrap" :class="tab !== String(collection.id) && 'opacity-60'">
-                    <span class="max-w-36 truncate">{{ collection.name }}</span>
-                    <span class="text-xs font-normal tabular-nums opacity-60">{{ formatCount(collection.count) }}</span>
-                  </span>
+                  <Icon name="gravity-ui:plus" class="text-base opacity-70" />
                 </Motion>
                 <Motion
-                  v-if="confirmingDelete === collection.id"
-                  :ref="setDeleteContent"
-                  class="flex w-max shrink-0 items-center gap-3 px-3 whitespace-nowrap"
-                  :initial="{ opacity: 0 }"
-                  :animate="{ opacity: 1, transition: { delay: 0.1, duration: 0.15 } }"
-                >
-                  <span class="text-sm font-medium">Delete “{{ collection.name }}”?</span>
-                  <button type="button" :class="textButton" @click="confirmingDelete = null">
-                    Cancel
-                  </button>
-                  <button type="button" :class="textButton" @click="confirmDelete(collection.id)">
-                    Delete
-                  </button>
-                </Motion>
-              </Motion>
-              <Motion
-                v-else-if="editing === collection.id"
-                :initial="{ width: renameFromWidth || nameWidth }"
-                :animate="{ width: nameWidth }"
-                :transition="morph"
-                :style="{ borderRadius: '6px' }"
-                class="flex h-8 overflow-hidden bg-black/[5.78%] dark:bg-white/[8.37%]"
-              >
-                <input
+                  v-else
+                  key="field"
                   :ref="setNameInput"
-                  v-model="draft"
+                  as="input"
+                  :value="draft"
                   :class="newNameText"
                   :style="{ width: `${nameWidth}px` }"
+                  :placeholder="NAME_PLACEHOLDER"
                   spellcheck="false"
+                  :initial="{ opacity: 0 }"
+                  :animate="{ opacity: 1 }"
+                  :exit="{ opacity: 0 }"
+                  :transition="{ duration: 0.15 }"
+                  @input="draft = ($event.target as HTMLInputElement).value"
                   @keydown.enter="commit"
                   @keydown.esc.prevent="cancel"
                   @blur="commit"
-                >
-              </Motion>
-              <ContextMenuRoot
-                v-else
-                :open="menuOpenFor === collection.id"
-                @update:open="menuOpenFor = $event ? collection.id : null"
-              >
-                <ContextMenuTrigger as-child>
-                  <TabsTrigger :value="String(collection.id)" :data-collection-tab="collection.id" :class="trigger" @pointerenter="emit('prefetch', collection.id)">
-                    <span class="flex min-w-0 items-baseline gap-1.5">
-                      <span class="min-w-0 truncate">{{ collection.name }}</span>
-                      <span class="shrink-0 text-xs font-normal tabular-nums opacity-60">{{ formatCount(collection.count) }}</span>
-                    </span>
-                    <TabPill v-if="tab === String(collection.id)" />
-                  </TabsTrigger>
-                </ContextMenuTrigger>
-                <ContextMenuPortal force-mount>
-                  <AnimatePresence>
-                    <ContextMenuContent
-                      v-if="menuOpenFor === collection.id"
-                      force-mount
-                      as-child
-                      @close-auto-focus.prevent
-                    >
-                      <Motion :class="menuContent" v-bind="menuMotion">
-                        <ContextMenuItem :class="menuItem" @select="startEditing(collection.id, collection.name)">
-                          <Icon name="gravity-ui:pencil" :class="menuIcon" />
-                          Rename
-                        </ContextMenuItem>
-                        <ContextMenuItem :class="menuItem" @select="removeCollection(collection.id)">
-                          <Icon name="gravity-ui:trash-bin" :class="menuIcon" />
-                          Delete collection
-                        </ContextMenuItem>
-                      </Motion>
-                    </ContextMenuContent>
-                  </AnimatePresence>
-                </ContextMenuPortal>
-              </ContextMenuRoot>
-            </ReorderItem>
-          </AnimatePresence>
-        </ReorderGroup>
-
-        <Tooltip content="New collection" :disabled="creating">
-          <Motion
-            layout="position"
-            :initial="false"
-            :animate="morphWidth"
-            :transition="morph"
-            :style="{ borderRadius: '6px' }"
-            class="relative flex h-8 shrink-0 items-center overflow-hidden transition-colors duration-100"
-            :class="creating ? 'bg-black/[5.78%] dark:bg-white/[8.37%]' : 'hover:bg-black/[3.73%] dark:hover:bg-white/[6.05%]'"
-          >
-            <span
-              ref="nameMirror"
-              aria-hidden="true"
-              class="pointer-events-none invisible absolute left-0 w-max px-3 text-sm font-medium whitespace-pre"
-            >{{ draft || NAME_PLACEHOLDER }}</span>
-            <AnimatePresence mode="popLayout" :initial="false">
-              <Motion
-                v-if="!creating"
-                key="button"
-                as="button"
-                type="button"
-                class="flex size-8 shrink-0 cursor-pointer items-center justify-center focus-visible:outline-2 focus-visible:outline-current"
-                :initial="{ opacity: 0, scale: 0.5, rotate: -90 }"
-                :animate="{ opacity: 1, scale: 1, rotate: 0 }"
-                :exit="{ opacity: 0, scale: 0.5, rotate: 90 }"
-                :transition="morph"
-                @click="startEditing('new')"
-              >
-                <Icon name="gravity-ui:plus" class="text-base opacity-70" />
-              </Motion>
-              <Motion
-                v-else
-                key="field"
-                :ref="setNameInput"
-                as="input"
-                :value="draft"
-                :class="newNameText"
-                :style="{ width: `${nameWidth}px` }"
-                :placeholder="NAME_PLACEHOLDER"
-                spellcheck="false"
-                :initial="{ opacity: 0 }"
-                :animate="{ opacity: 1 }"
-                :exit="{ opacity: 0 }"
-                :transition="{ duration: 0.15 }"
-                @input="draft = ($event.target as HTMLInputElement).value"
-                @keydown.enter="commit"
-                @keydown.esc.prevent="cancel"
-                @blur="commit"
-              />
-            </AnimatePresence>
-          </Motion>
-        </Tooltip>
-      </LayoutGroup>
-    </TabsList>
+                />
+              </AnimatePresence>
+            </Motion>
+          </Tooltip>
+        </LayoutGroup>
+      </TabsList>
+    </ScrollArea>
   </TabsRoot>
 </template>
