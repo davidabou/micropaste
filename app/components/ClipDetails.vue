@@ -262,6 +262,7 @@ function onPanelAnimated() {
 }
 
 const label = 'shrink-0 opacity-60'
+const imageButton = 'absolute right-2 bottom-2 flex size-7 cursor-pointer items-center justify-center rounded-md bg-white/80 shadow-sm backdrop-blur-md transition-[background-color] duration-100 hover:bg-white focus-visible:outline-2 focus-visible:outline-current dark:bg-black/60 dark:hover:bg-black/80'
 const carouselButton = 'absolute top-1/2 flex size-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-white/80 opacity-0 shadow-sm transition-[opacity,background-color] duration-150 group-hover/carousel:opacity-100 focus-visible:opacity-100 hover:bg-white focus-visible:outline-2 focus-visible:outline-current dark:bg-black/60 dark:hover:bg-black/80'
 </script>
 
@@ -299,7 +300,7 @@ const carouselButton = 'absolute top-1/2 flex size-7 -translate-y-1/2 cursor-poi
             <div class="px-4 pb-4">
               <div
                 v-if="shown.kind === 'image' || link || color || svgSrc || files"
-                class="mb-4 flex h-48 items-center justify-center overflow-hidden rounded-lg bg-black/[3.73%] dark:bg-white/[6.05%]"
+                class="relative mb-4 flex h-48 items-center justify-center overflow-hidden rounded-lg bg-black/[3.73%] dark:bg-white/[6.05%]"
               >
                 <ClipImage v-if="shown.kind === 'image'" :file="`${shown.content}.png`" class="size-full object-contain" />
                 <ClipImage v-else-if="linkPreview?.image" :file="linkPreview.image" class="size-full object-cover" />
@@ -391,6 +392,11 @@ const carouselButton = 'absolute top-1/2 flex size-7 -translate-y-1/2 cursor-poi
                     </div>
                   </template>
                 </div>
+                <Tooltip v-if="imageText" :content="textCopy?.label ?? 'Copy text'">
+                  <button type="button" :class="imageButton" aria-label="Copy text" @click="copyImageText">
+                    <Icon :name="textCopy ? (textCopy.failed ? 'gravity-ui:circle-xmark' : 'gravity-ui:check') : 'gravity-ui:square-dashed-text'" class="text-sm" />
+                  </button>
+                </Tooltip>
               </div>
               <p v-if="isGroup && slidePath" class="-mt-2 mb-4 truncate text-center opacity-70">
                 {{ fileName(slidePath) }}
@@ -405,22 +411,6 @@ const carouselButton = 'absolute top-1/2 flex size-7 -translate-y-1/2 cursor-poi
                   {{ text }}
                 </p>
               </ScrollArea>
-              <div v-if="imageText" class="relative mb-4">
-                <ScrollArea class="rounded-lg bg-black/[3.73%] dark:bg-white/[6.05%]" viewport-class="max-h-40">
-                  <p class="p-3 pr-11 whitespace-pre-wrap wrap-anywhere select-text">
-                    {{ imageText }}
-                  </p>
-                </ScrollArea>
-                <Tooltip :content="textCopy?.label ?? 'Copy text'">
-                  <Button
-                    size="sm"
-                    class="absolute top-1.5 right-1.5"
-                    :icon="textCopy ? (textCopy.failed ? 'gravity-ui:circle-xmark' : 'gravity-ui:check') : 'gravity-ui:copy'"
-                    aria-label="Copy text"
-                    @click="copyImageText"
-                  />
-                </Tooltip>
-              </div>
               <p v-if="linkPreview?.description" class="mb-4 opacity-80">
                 {{ linkPreview.description }}
               </p>

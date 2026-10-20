@@ -68,7 +68,7 @@ function toggle(collection: number, checked: boolean | 'indeterminate') {
               Copy
             </ContextMenuItem>
             <ContextMenuItem v-if="hasText" :class="menuItem" @select="emit('copyText')">
-              <Icon name="gravity-ui:text" :class="menuIcon" />
+              <Icon name="gravity-ui:square-dashed-text" :class="menuIcon" />
               Copy text
             </ContextMenuItem>
             <ContextMenuItem v-if="link" :class="menuItem" @select="openLink">
