@@ -150,6 +150,17 @@ async function measureName() {
 onMounted(measureName)
 watch(draft, measureName, { flush: 'post' })
 const morphWidth = computed(() => ({ width: creating.value ? nameWidth.value : 32 }))
+const pillMorph = { type: 'spring', bounce: 0.15, visualDuration: 0.25 } as const
+const plusMotion = {
+  initial: { opacity: 0, scale: 0.6 },
+  animate: { opacity: 1, scale: 1, transition: { type: 'spring' as const, bounce: 0.45, visualDuration: 0.3 } },
+  exit: { opacity: 0, scale: 0.6, transition: { duration: 0.08, ease: 'easeIn' as const } }
+}
+const fieldMotion = {
+  initial: { opacity: 0, x: -6 },
+  animate: { opacity: 1, x: 0, transition: { type: 'spring' as const, bounce: 0, visualDuration: 0.2, delay: 0.04 } },
+  exit: { opacity: 0, transition: { duration: 0.08 } }
+}
 const newNameText = 'h-8 shrink-0 bg-transparent px-3 text-sm outline-none placeholder:text-current placeholder:opacity-50'
 
 const tabPop = {
@@ -306,7 +317,7 @@ const tabSlide = { type: 'spring', bounce: 0.2, duration: 0.4 } as const
               layout="position"
               :initial="false"
               :animate="morphWidth"
-              :transition="morph"
+              :transition="pillMorph"
               :style="{ borderRadius: '6px' }"
               class="relative flex h-8 shrink-0 items-center overflow-hidden transition-colors duration-100"
               :class="creating ? 'bg-black/[5.78%] dark:bg-white/[8.37%]' : 'hover:bg-black/[3.73%] dark:hover:bg-white/[6.05%]'"
@@ -323,10 +334,7 @@ const tabSlide = { type: 'spring', bounce: 0.2, duration: 0.4 } as const
                   as="button"
                   type="button"
                   class="flex size-8 shrink-0 cursor-pointer items-center justify-center focus-visible:outline-2 focus-visible:outline-current"
-                  :initial="{ opacity: 0, scale: 0.5, rotate: -90 }"
-                  :animate="{ opacity: 1, scale: 1, rotate: 0 }"
-                  :exit="{ opacity: 0, scale: 0.5, rotate: 90 }"
-                  :transition="morph"
+                  v-bind="plusMotion"
                   @click="startEditing('new')"
                 >
                   <Icon name="gravity-ui:plus" class="text-base opacity-70" />
@@ -341,10 +349,7 @@ const tabSlide = { type: 'spring', bounce: 0.2, duration: 0.4 } as const
                   :style="{ width: `${nameWidth}px` }"
                   :placeholder="NAME_PLACEHOLDER"
                   spellcheck="false"
-                  :initial="{ opacity: 0 }"
-                  :animate="{ opacity: 1 }"
-                  :exit="{ opacity: 0 }"
-                  :transition="{ duration: 0.15 }"
+                  v-bind="fieldMotion"
                   @input="draft = ($event.target as HTMLInputElement).value"
                   @keydown.enter="commit"
                   @keydown.esc.prevent="cancel"
