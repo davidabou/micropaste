@@ -2,7 +2,7 @@
 
 A visual clipboard library for **Windows 11**: everything that gets copied (text, links, images, screenshots, colors, code, files) is kept, previewed as rich cards, organized by type, by source app and into custom categories, then reused in one gesture (paste, drag and drop, shortcut).
 
-It is **not** just a Win+V replacement: Win+V is only one entry point among others to the **Shelf** and the **Library**.
+It is **not** just a Win+V replacement: it's a library to browse, organize and reuse what was copied.
 Local-first, fast, with a premium, native Windows 11 design (inspired by Supaste on Mac, without copying its visuals).
 
 ## How to work
