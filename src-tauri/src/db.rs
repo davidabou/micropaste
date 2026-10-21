@@ -522,6 +522,26 @@ pub fn reorder_collections(conn: &mut Connection, ids: &[i64]) -> rusqlite::Resu
     tx.commit()
 }
 
+pub fn remove_from_history(conn: &Connection, id: i64) -> rusqlite::Result<()> {
+    conn.execute("UPDATE clips SET in_history = 0 WHERE id = ?1", params![id])?;
+    Ok(())
+}
+
+pub fn collection_clip_ids(conn: &Connection, collection: i64) -> rusqlite::Result<Vec<i64>> {
+    let mut stmt = conn.prepare("SELECT clip_id FROM collection_clips WHERE collection_id = ?1")?;
+    stmt.query_map(params![collection], |row| row.get(0))?.collect()
+}
+
+/// A dropped clip that is in no collection and not starred: nothing shows it anymore.
+pub fn is_orphan(conn: &Connection, id: i64) -> rusqlite::Result<bool> {
+    conn.query_row(
+        "SELECT EXISTS (SELECT 1 FROM clips WHERE id = ?1 AND in_history = 0 AND favorite = 0
+             AND id NOT IN (SELECT clip_id FROM collection_clips))",
+        params![id],
+        |row| row.get(0),
+    )
+}
+
 pub fn delete_collection(conn: &Connection, id: i64) -> rusqlite::Result<()> {
     conn.execute("DELETE FROM collections WHERE id = ?1", params![id])?;
     Ok(())
@@ -719,6 +739,43 @@ mod tests {
         let copied = text(&conn, "copied", 1);
         save_dropped(&conn, NewClip::Text("copied"), None, 2).unwrap();
         assert_eq!(ids(&list(&conn, 10, Scope::History, &Filter::default()).unwrap()), [copied.id]);
+    }
+
+    #[test]
+    fn a_clip_removed_from_the_history_stays_where_it_was_kept() {
+        let conn = memory();
+        let work = create_collection(&conn, "Work", 1).unwrap();
+        let kept = text(&conn, "kept", 1);
+        add_to_collection(&conn, work.id, kept.id, 1).unwrap();
+        let alone = text(&conn, "alone", 2);
+
+        remove_from_history(&conn, kept.id).unwrap();
+        remove_from_history(&conn, alone.id).unwrap();
+        assert!(list(&conn, 10, Scope::History, &Filter::default()).unwrap().is_empty());
+        assert_eq!(ids(&list(&conn, 10, Scope::Collection(work.id), &Filter::default()).unwrap()), [kept.id]);
+        assert!(!is_orphan(&conn, kept.id).unwrap());
+        assert!(is_orphan(&conn, alone.id).unwrap());
+    }
+
+    #[test]
+    fn a_dropped_clip_is_orphan_once_out_of_every_collection() {
+        let conn = memory();
+        let a = create_collection(&conn, "A", 1).unwrap();
+        let b = create_collection(&conn, "B", 1).unwrap();
+        let dropped = save_dropped(&conn, NewClip::Text("dropped"), None, 1).unwrap();
+        add_to_collection(&conn, a.id, dropped.id, 1).unwrap();
+        add_to_collection(&conn, b.id, dropped.id, 1).unwrap();
+        let copied = text(&conn, "copied", 1);
+        add_to_collection(&conn, a.id, copied.id, 1).unwrap();
+        assert_eq!(collection_clip_ids(&conn, a.id).unwrap().len(), 2);
+
+        remove_from_collection(&conn, a.id, dropped.id).unwrap();
+        assert!(!is_orphan(&conn, dropped.id).unwrap());
+        remove_from_collection(&conn, b.id, dropped.id).unwrap();
+        assert!(is_orphan(&conn, dropped.id).unwrap());
+
+        remove_from_collection(&conn, a.id, copied.id).unwrap();
+        assert!(!is_orphan(&conn, copied.id).unwrap());
     }
 
     #[test]

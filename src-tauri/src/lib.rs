@@ -61,6 +61,21 @@ fn set_favorite(db: tauri::State<Db>, id: i64, favorite: bool) -> Result<Clip, S
 }
 
 #[tauri::command]
+fn remove_from_favorites(app: tauri::AppHandle, db: tauri::State<Db>, id: i64) -> Result<Clip, String> {
+    let conn = db.conn();
+    let clip = db::set_favorite(&conn, id, false, clipboard::now_ms()).map_err(|e| e.to_string())?;
+    history::remove_orphans(&app, &conn, &[id])?;
+    Ok(clip)
+}
+
+#[tauri::command]
+fn remove_from_history(app: tauri::AppHandle, db: tauri::State<Db>, id: i64) -> Result<(), String> {
+    let conn = db.conn();
+    db::remove_from_history(&conn, id).map_err(|e| e.to_string())?;
+    history::remove_orphans(&app, &conn, &[id])
+}
+
+#[tauri::command]
 fn count_clips(db: tauri::State<Db>) -> Result<i64, String> {
     db::count(&db.conn()).map_err(|e| e.to_string())
 }
@@ -88,8 +103,11 @@ fn reorder_collections(db: tauri::State<Db>, ids: Vec<i64>) -> Result<(), String
 }
 
 #[tauri::command]
-fn delete_collection(db: tauri::State<Db>, id: i64) -> Result<(), String> {
-    db::delete_collection(&db.conn(), id).map_err(|e| e.to_string())
+fn delete_collection(app: tauri::AppHandle, db: tauri::State<Db>, id: i64) -> Result<(), String> {
+    let conn = db.conn();
+    let clips = db::collection_clip_ids(&conn, id).map_err(|e| e.to_string())?;
+    db::delete_collection(&conn, id).map_err(|e| e.to_string())?;
+    history::remove_orphans(&app, &conn, &clips)
 }
 
 #[tauri::command]
@@ -103,8 +121,15 @@ fn reorder_collection(db: tauri::State<Db>, collection: i64, clips: Vec<i64>) ->
 }
 
 #[tauri::command]
-fn remove_from_collection(db: tauri::State<Db>, collection: i64, clip: i64) -> Result<(), String> {
-    db::remove_from_collection(&db.conn(), collection, clip).map_err(|e| e.to_string())
+fn remove_from_collection(
+    app: tauri::AppHandle,
+    db: tauri::State<Db>,
+    collection: i64,
+    clip: i64,
+) -> Result<(), String> {
+    let conn = db.conn();
+    db::remove_from_collection(&conn, collection, clip).map_err(|e| e.to_string())?;
+    history::remove_orphans(&app, &conn, &[clip])
 }
 
 #[tauri::command]
@@ -457,6 +482,8 @@ pub fn run() {
             list_sources,
             count_clips,
             set_favorite,
+            remove_from_favorites,
+            remove_from_history,
             list_collections,
             create_collection,
             rename_collection,

@@ -28,6 +28,8 @@ const {
   removeFromCollection,
   prefetch,
   toggleFavorite,
+  removeFromFavorites,
+  removeFromHistory,
   moveInCollection,
   saveCollectionOrder,
   dropIntoCollection
@@ -213,6 +215,7 @@ useEventListener('dragleave', onDragLeave)
           @copy="copy"
           @favorite="toggleFavorite"
           @delete="remove"
+          @remove-from-history="removeFromHistory"
           @add="addTo"
           @remove-from="removeFrom"
         >
@@ -233,13 +236,14 @@ useEventListener('dragleave', onDragLeave)
             <ClipGrid
               :clips="tabClips"
               :collection="shownCollection"
+              :favorites="shownTab === 'favorites'"
               :layout="layout"
               :reorderable="!searching && shownCollection !== null"
               @info="detailsClip = $event"
               @move="moveInCollection"
               @move-end="saveCollectionOrder"
               @copy="copy"
-              @favorite="toggleFavorite"
+              @favorite="shownTab === 'favorites' ? removeFromFavorites($event) : toggleFavorite($event)"
               @delete="remove"
               @add="addTo"
               @remove-from="removeFrom"

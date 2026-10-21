@@ -25,6 +25,20 @@ pub fn remove(app: &AppHandle, conn: &Connection, id: i64) -> Result<(), String>
     Ok(())
 }
 
+pub fn remove_orphans(app: &AppHandle, conn: &Connection, ids: &[i64]) -> Result<(), String> {
+    let mut removed = Vec::new();
+    for &id in ids {
+        if db::is_orphan(conn, id).map_err(|e| e.to_string())? {
+            remove(app, conn, id)?;
+            removed.push(id);
+        }
+    }
+    if !removed.is_empty() {
+        let _ = app.emit(CLIPS_REMOVED_EVENT, removed);
+    }
+    Ok(())
+}
+
 /// The first cleanup runs before the window loads the history, so it never shows expired clips.
 pub fn start_cleanup(app: AppHandle) {
     purge_or_log(&app);

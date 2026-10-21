@@ -41,7 +41,7 @@ Local-first, fast, with a premium, native Windows 11 design (inspired by Supaste
 | `copy.rs` | Copying a clip back, or a single file of a group; `is_own_copy` ignores copies made from the window; `clip_file` only accepts paths of the clip |
 | `paste.rs` | Paste to…: the target is the first app window under Micropaste in the z-order (the app used last); copies the clip, hides the window, brings the app back and sends Ctrl+V |
 | `db.rs` | SQLite; for any schema change, append a migration to the end of `MIGRATIONS` (never edit or reorder existing ones: `user_version` is how many have run) |
-| `history.rs` | Cleanup: unused for the retention set in the settings (30 days by default), except favorites and clips in collections; at startup then hourly, emits `clips-removed` |
+| `history.rs` | Cleanup: unused for the retention set in the settings (30 days by default), except favorites and clips in collections; at startup then hourly, emits `clips-removed`; `remove_orphans` deletes right away a dropped clip removed from its last collection (or whose collection is deleted), unless starred |
 | `images.rs` | Images stored as PNG by hash in `$APPDATA/images` |
 | `save.rs` | Save as… for images and files: the save dialog runs in Rust (`tauri-plugin-dialog`), so the page never writes files; a group goes to a folder, `name (2).ext` on conflicts |
 | `media.rs` | GIFs, videos and audio files of a clip played in the details panel: `allow_media` checks the path belongs to the clip, then adds that one file to the asset protocol scope |
@@ -67,6 +67,7 @@ Local-first, fast, with a premium, native Windows 11 design (inspired by Supaste
 ## Product rules
 
 - **History** = real copies (Ctrl+C). Content **dropped** from another app only goes into a collection (`in_history = 0`), never into the history, until it is actually copied (from another app or from the window). Its details say "Added" instead of "Copied" until then.
+- Removing only takes a clip out of the shown tab: from History it stays in its collections and Favorites (`in_history = 0`), from Favorites it stays in History and collections. A clip left nowhere is deleted. The menu says "Delete" in History ("Delete from history?" or "Delete this clip?" on the tile, whether the clip is kept elsewhere) and "Remove" in collections. Favorites has no remove item: the star is how a clip leaves it (and, from that tab, deletes a clip kept nowhere else).
 - External drop is only available in collections.
 - The order of a collection is manual: dropping or adding a clip it already holds keeps its place (the tile pulses, or says "Already in …").
 - The Favorites tab holds every starred clip (dropped ones too), latest starred first, with no manual order: that's what collections are for.

@@ -6,6 +6,7 @@ import { openUrl } from '@tauri-apps/plugin-opener'
 const props = defineProps<{
   clip: Clip
   collection: number | null
+  favorites?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -140,15 +141,17 @@ function toggle(collection: number, checked: boolean | 'indeterminate') {
               </ContextMenuPortal>
             </ContextMenuSub>
 
-            <ContextMenuSeparator :class="menuSeparator" />
-            <ContextMenuItem v-if="collection === null" :class="menuItem" @select="emit('delete')">
-              <Icon name="gravity-ui:trash-bin" :class="menuIcon" />
-              Delete
-            </ContextMenuItem>
-            <ContextMenuItem v-else :class="menuItem" @select="emit('removeFrom', collection)">
-              <Icon name="gravity-ui:xmark" :class="menuIcon" />
-              Remove
-            </ContextMenuItem>
+            <template v-if="!favorites">
+              <ContextMenuSeparator :class="menuSeparator" />
+              <ContextMenuItem v-if="collection === null" :class="menuItem" @select="emit('delete')">
+                <Icon name="gravity-ui:trash-bin" :class="menuIcon" />
+                Delete
+              </ContextMenuItem>
+              <ContextMenuItem v-else :class="menuItem" @select="emit('removeFrom', collection)">
+                <Icon name="gravity-ui:xmark" :class="menuIcon" />
+                Remove
+              </ContextMenuItem>
+            </template>
           </Motion>
         </ContextMenuContent>
       </AnimatePresence>

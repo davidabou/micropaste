@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Clip, PartialCopy } from '@/composables/useClips'
+import type { Clip, DeleteAction, PartialCopy } from '@/composables/useClips'
 import { invoke } from '@tauri-apps/api/core'
 import { animate } from 'motion-v'
 import { copiedText } from '@/composables/useClips'
@@ -8,7 +8,7 @@ const props = defineProps<{
   clip: Clip
   onCopy?: () => Promise<PartialCopy | null>
   inCollection?: boolean
-  confirm?: 'delete' | 'remove' | null
+  confirm?: DeleteAction | null
   layout?: 'grid' | 'list'
 }>()
 
@@ -49,6 +49,12 @@ function showNotice(text: string, error = false) {
 }
 
 const errorText = (error: unknown) => (typeof error === 'string' ? error : 'Couldn’t copy')
+
+const confirmTexts: Record<DeleteAction, { question: string, action: string }> = {
+  delete: { question: 'Delete this clip?', action: 'Delete' },
+  history: { question: 'Delete from history?', action: 'Delete' },
+  remove: { question: 'Remove from this collection?', action: 'Remove' }
+}
 
 async function copy() {
   copying.value = true
@@ -431,14 +437,14 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
           :transition="{ type: 'spring', bounce: 0.4, duration: 0.35 }"
         >
           <p class="text-sm">
-            {{ confirm === 'remove' ? 'Remove from this collection?' : 'Delete this clip?' }}
+            {{ confirmTexts[confirm].question }}
           </p>
           <div class="flex gap-2">
             <Button size="sm" @click="$emit('cancelDelete')">
               Cancel
             </Button>
             <Button size="sm" @click="$emit('delete')">
-              {{ confirm === 'remove' ? 'Remove' : 'Delete' }}
+              {{ confirmTexts[confirm].action }}
             </Button>
           </div>
         </Motion>

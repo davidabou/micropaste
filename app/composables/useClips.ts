@@ -16,6 +16,9 @@ export interface Clip {
   inHistory: boolean
 }
 
+/** `delete` deletes the clip; the others only take it out of the shown tab. */
+export type DeleteAction = 'delete' | 'history' | 'remove'
+
 export interface PartialCopy {
   copied: number
   total: number
@@ -230,8 +233,22 @@ export function useClips(
     if (typeof id === 'number' && clips) invoke('reorder_collection', { collection: id, clips: clips.map(c => c.id) })
   }
 
-  const toggleFavorite = async (clip: Clip) => {
-    const updated = await invoke<Clip>('set_favorite', { id: clip.id, favorite: !clip.favorite })
+  const removeFromHistory = async (clip: Clip) => {
+    await invoke('remove_from_history', { id: clip.id })
+    refreshCounts()
+    history.value = without(history.value, clip)!
+    historyResults.value = without(historyResults.value, clip)
+    const updated = { ...clip, inHistory: false }
+    updateCache(clips => clips.map(c => (c.id === clip.id ? updated : c)))
+  }
+
+  const toggleFavorite = async (clip: Clip) =>
+    applyFavorite(await invoke<Clip>('set_favorite', { id: clip.id, favorite: !clip.favorite }))
+
+  const removeFromFavorites = async (clip: Clip) =>
+    applyFavorite(await invoke<Clip>('remove_from_favorites', { id: clip.id }))
+
+  const applyFavorite = (updated: Clip) => {
     const replace = (list: Clip[]) => list.map(c => (c.id === updated.id ? updated : c))
     history.value = replace(history.value)
     updateCache(replace)
@@ -260,6 +277,8 @@ export function useClips(
     removeFromCollection,
     prefetch,
     toggleFavorite,
+    removeFromFavorites,
+    removeFromHistory,
     moveInCollection,
     saveCollectionOrder,
     dropIntoCollection

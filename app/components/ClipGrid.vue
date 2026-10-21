@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import type { Clip, PartialCopy } from '@/composables/useClips'
+import type { Clip, DeleteAction, PartialCopy } from '@/composables/useClips'
 import { invoke } from '@tauri-apps/api/core'
 import { animate } from 'motion-v'
 
 const props = defineProps<{
   clips: Clip[]
   collection: number | null
+  favorites?: boolean
   onCopy: (clip: Clip) => Promise<PartialCopy | null>
   reorderable?: boolean
   layout?: 'grid' | 'list'
@@ -16,6 +17,7 @@ const emit = defineEmits<{
   info: [clip: Clip]
   favorite: [clip: Clip]
   delete: [clip: Clip]
+  removeFromHistory: [clip: Clip]
   add: [clip: Clip, collection: number]
   removeFrom: [clip: Clip, collection: number]
   move: [clip: Clip, target: Clip]
@@ -154,12 +156,21 @@ watch(() => props.clips.length, checkEnd)
 const tileTransition = { type: 'spring', bounce: 0.15, duration: 0.45 } as const
 const tileExit = { opacity: 0, scale: 0.85, transition: { duration: 0.2, ease: 'easeIn' as const } }
 
-const pending = ref<{ clip: number, action: 'delete' | 'remove' } | null>(null)
-const askDelete = (clip: Clip) => (pending.value = { clip: clip.id, action: props.collection === null ? 'delete' : 'remove' })
+const pending = ref<{ clip: number, action: DeleteAction } | null>(null)
+async function askDelete(clip: Clip) {
+  pending.value = { clip: clip.id, action: await deleteAction(clip) }
+}
+async function deleteAction(clip: Clip): Promise<DeleteAction> {
+  if (props.collection !== null) return 'remove'
+  if (clip.favorite) return 'history'
+  const collections = await invoke<number[]>('clip_collections', { clip: clip.id }).catch((): number[] => [])
+  return collections.length ? 'history' : 'delete'
+}
 function confirmDelete(clip: Clip) {
   const action = pending.value?.action
   pending.value = null
   if (action === 'delete') emit('delete', clip)
+  else if (action === 'history') emit('removeFromHistory', clip)
   else if (action === 'remove' && props.collection !== null) emit('removeFrom', clip, props.collection)
 }
 const asking = () => (pending.value ? window : null)
@@ -200,6 +211,7 @@ function onRemoveFrom(clip: Clip, collection: number) {
               <ClipContextMenu
                 :clip="clip"
                 :collection="collection"
+                :favorites="favorites"
                 @copy="cards.get(clip.id)?.copy()"
                 @paste="paste(clip)"
                 @copy-text="copyImageText(clip)"
@@ -207,7 +219,7 @@ function onRemoveFrom(clip: Clip, collection: number) {
                 @share="share(clip)"
                 @info="emit('info', clip)"
                 @favorite="emit('favorite', clip)"
-                @delete="pending = { clip: clip.id, action: 'delete' }"
+                @delete="askDelete(clip)"
                 @add="emit('add', clip, $event)"
                 @remove-from="onRemoveFrom(clip, $event)"
               >
