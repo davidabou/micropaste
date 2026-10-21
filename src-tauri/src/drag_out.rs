@@ -53,7 +53,7 @@ fn temp_dir() -> PathBuf {
     std::env::temp_dir().join("micropaste")
 }
 
-/// The image copies made for drags and shares are only needed while those happen.
+// The image copies made for drags and shares are only needed while those happen.
 pub fn clear_temp_files() {
     let _ = fs::remove_dir_all(temp_dir());
 }

@@ -18,7 +18,8 @@ struct Dropped {
 }
 
 fn save(app: &AppHandle, collection: i64, clip: NewClip) -> Result<Clip, String> {
-    let source = crate::source_app::foreground();
+    // The drop can activate Micropaste before it gets here: then the app used last is the source
+    let source = crate::source_app::foreground().or_else(crate::paste::target);
     let db = app.state::<Db>();
     let conn = db.conn();
     let saved = db::save_dropped(&conn, clip, source.as_ref(), now_ms()).map_err(|e| e.to_string())?;
