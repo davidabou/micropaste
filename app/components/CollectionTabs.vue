@@ -42,8 +42,6 @@ function onTileDrop(event: DragEvent, id: number) {
   animate(event.currentTarget as HTMLElement, { scale: [1, 1.15, 1] }, { duration: 0.4, ease: 'easeOut' })
 }
 
-const formatCount = (count: number) => count.toLocaleString('en-US')
-
 const tab = computed({
   get: () => String(selected.value),
   set: (value: string) => (selected.value = value === 'history' || value === 'favorites' ? value : Number(value))
@@ -185,7 +183,7 @@ const tabSlide = { type: 'spring', bounce: 0.2, duration: 0.4 } as const
           <TabsTrigger value="history" :class="trigger">
             <span class="flex min-w-0 items-baseline gap-1.5">
               <span class="min-w-0 truncate">History</span>
-              <span class="shrink-0 text-xs font-normal tabular-nums opacity-60">{{ formatCount(historyCount) }}</span>
+              <TabCount :value="historyCount" />
             </span>
             <TabPill v-if="tab === 'history'" />
           </TabsTrigger>
@@ -234,7 +232,7 @@ const tabSlide = { type: 'spring', bounce: 0.2, duration: 0.4 } as const
                   >
                     <span class="flex items-baseline gap-1.5 whitespace-nowrap" :class="tab !== String(collection.id) && 'opacity-60'">
                       <span class="max-w-36 truncate">{{ collection.name }}</span>
-                      <span class="text-xs font-normal tabular-nums opacity-60">{{ formatCount(collection.count) }}</span>
+                      <TabCount :value="collection.count" />
                     </span>
                   </Motion>
                   <Motion
@@ -281,7 +279,7 @@ const tabSlide = { type: 'spring', bounce: 0.2, duration: 0.4 } as const
                     <TabsTrigger :value="String(collection.id)" :data-collection-tab="collection.id" :class="trigger" @pointerenter="emit('prefetch', collection.id)">
                       <span class="flex min-w-0 items-baseline gap-1.5">
                         <span class="min-w-0 truncate">{{ collection.name }}</span>
-                        <span class="shrink-0 text-xs font-normal tabular-nums opacity-60">{{ formatCount(collection.count) }}</span>
+                        <TabCount :value="collection.count" />
                       </span>
                       <TabPill v-if="tab === String(collection.id)" />
                     </TabsTrigger>
