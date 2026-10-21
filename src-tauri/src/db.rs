@@ -29,6 +29,7 @@ pub struct Clip {
     pub source_app_path: Option<String>,
     pub created_at: i64,
     pub favorite: bool,
+    pub in_history: bool,
 }
 
 pub fn open(path: &Path) -> rusqlite::Result<Connection> {
@@ -161,7 +162,7 @@ pub enum NewClip<'a> {
 }
 
 const COLUMNS: &str =
-    "id, kind, content, width, height, byte_size, source_app_name, source_app_path, created_at, favorite";
+    "id, kind, content, width, height, byte_size, source_app_name, source_app_path, created_at, favorite, in_history";
 
 pub fn save(conn: &Connection, clip: NewClip, source: Option<&SourceApp>, now: i64) -> rusqlite::Result<Clip> {
     let (kind, content, width, height, byte_size) = clip.columns();
@@ -312,7 +313,7 @@ pub fn set_favorite(conn: &Connection, id: i64, favorite: bool, now: i64) -> rus
 
 pub fn touch(conn: &Connection, id: i64, now: i64) -> rusqlite::Result<Clip> {
     conn.query_row(
-        &format!("UPDATE clips SET created_at = ?2 WHERE id = ?1 RETURNING {COLUMNS}"),
+        &format!("UPDATE clips SET created_at = ?2, in_history = 1 WHERE id = ?1 RETURNING {COLUMNS}"),
         params![id, now],
         to_clip,
     )
@@ -613,6 +614,7 @@ fn to_clip(row: &Row) -> rusqlite::Result<Clip> {
         source_app_path: row.get(7)?,
         created_at: row.get(8)?,
         favorite: row.get(9)?,
+        in_history: row.get(10)?,
     })
 }
 
@@ -698,6 +700,16 @@ mod tests {
 
         let copied = text(&conn, "dropped", 2);
         assert_eq!(copied.id, dropped.id);
+        assert_eq!(ids(&list(&conn, 10, Scope::History, &Filter::default()).unwrap()), [dropped.id]);
+    }
+
+    #[test]
+    fn copying_a_dropped_clip_from_the_window_puts_it_in_the_history() {
+        let conn = memory();
+        let dropped = save_dropped(&conn, NewClip::Text("dropped"), None, 1).unwrap();
+        assert!(!dropped.in_history);
+        let copied = touch(&conn, dropped.id, 2).unwrap();
+        assert!(copied.in_history);
         assert_eq!(ids(&list(&conn, 10, Scope::History, &Filter::default()).unwrap()), [dropped.id]);
     }
 

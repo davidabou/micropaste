@@ -428,7 +428,7 @@ const carouselButton = 'absolute top-1/2 flex size-7 -translate-y-1/2 cursor-poi
                   </dd>
                 </div>
                 <div class="flex justify-between gap-4">
-                  <dt :class="label">Copied</dt>
+                  <dt :class="label">{{ shown.inHistory ? 'Copied' : 'Added' }}</dt>
                   <dd class="text-right">{{ lastCopied }}</dd>
                 </div>
                 <div v-if="dimensions" class="flex justify-between gap-4">

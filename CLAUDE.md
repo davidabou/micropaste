@@ -66,7 +66,7 @@ Local-first, fast, with a premium, native Windows 11 design (inspired by Supaste
 
 ## Product rules
 
-- **History** = real copies (Ctrl+C). Content **dropped** from another app only goes into a collection (`in_history = 0`), never into the history, until it is actually copied.
+- **History** = real copies (Ctrl+C). Content **dropped** from another app only goes into a collection (`in_history = 0`), never into the history, until it is actually copied (from another app or from the window). Its details say "Added" instead of "Copied" until then.
 - External drop is only available in collections.
 - The Favorites tab holds every starred clip (dropped ones too), latest starred first, with no manual order: that's what collections are for.
 - Copies made from the window have "Micropaste" as their source.

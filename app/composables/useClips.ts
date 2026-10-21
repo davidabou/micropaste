@@ -13,6 +13,7 @@ export interface Clip {
   sourceAppPath: string | null
   createdAt: number
   favorite: boolean
+  inHistory: boolean
 }
 
 export interface PartialCopy {
