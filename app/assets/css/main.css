@@ -2,7 +2,7 @@
 
 @theme {
     --font-sans: 'Outfit', 'Segoe UI', sans-serif;
-    --font-mono: 'Geist Mono', sans-serif;
+    --font-mono: 'Geist Mono', ui-monospace, monospace;
     --font-icons: 'Segoe Fluent Icons', 'Segoe MDL2 Assets';
     --animate-fade-in: fade-in 0.2s ease-out;
     --animate-fade-out: fade-out 0.2s ease-in forwards;
