@@ -433,6 +433,8 @@ pub fn run() {
             }
             app.manage(Db(Mutex::new(conn)));
 
+            // Safe: a second launch quits in the single instance plugin, before this setup
+            drag_out::clear_temp_files();
             ocr::start(app.handle().clone());
             clipboard::start_watcher(app.handle().clone());
             history::start_cleanup(app.handle().clone());

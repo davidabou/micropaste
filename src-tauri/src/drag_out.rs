@@ -49,8 +49,17 @@ fn drag(app: &AppHandle, window: Window, paths: Vec<PathBuf>) -> Result<(), Stri
     rx.recv().map_err(|e| e.to_string())?
 }
 
+fn temp_dir() -> PathBuf {
+    std::env::temp_dir().join("micropaste")
+}
+
+/// The image copies made for drags and shares are only needed while those happen.
+pub fn clear_temp_files() {
+    let _ = fs::remove_dir_all(temp_dir());
+}
+
 pub fn image_file(app: &AppHandle, hash: &str) -> Result<PathBuf, String> {
-    let dir = std::env::temp_dir().join("micropaste");
+    let dir = temp_dir();
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let path = dir.join(format!("Micropaste {}.png", &hash[..8.min(hash.len())]));
     if !path.exists() {
