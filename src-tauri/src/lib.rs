@@ -10,6 +10,7 @@ mod images;
 mod link_preview;
 mod media;
 mod ocr;
+mod paste;
 mod save;
 mod settings;
 mod source_app;
@@ -120,27 +121,48 @@ fn collection_name(name: &str) -> Result<&str, String> {
 
 #[tauri::command]
 async fn get_app_icon(db: tauri::State<'_, Db>, path: String) -> Result<Option<String>, String> {
-    {
-        let conn = db.conn();
-        // Only serve icons of apps that clips were copied from, not arbitrary files
-        if !db::is_source_app(&conn, &path).map_err(|e| e.to_string())? {
-            return Ok(None);
-        }
-        if let Some(png) = db::app_icon(&conn, &path).map_err(|e| e.to_string())? {
-            return Ok(Some(png_data_url(&png)));
-        }
+    // Only serve icons of apps that clips were copied from, not arbitrary files
+    if !db::is_source_app(&db.conn(), &path).map_err(|e| e.to_string())? {
+        return Ok(None);
     }
+    app_icon_url(&db, &path)
+}
 
-    let Some(png) = app_icon::extract_png(&path) else {
+fn app_icon_url(db: &Db, path: &str) -> Result<Option<String>, String> {
+    if let Some(png) = db::app_icon(&db.conn(), path).map_err(|e| e.to_string())? {
+        return Ok(Some(png_data_url(&png)));
+    }
+    let Some(png) = app_icon::extract_png(path) else {
         return Ok(None);
     };
-    db::save_app_icon(&db.conn(), &path, &png).map_err(|e| e.to_string())?;
+    db::save_app_icon(&db.conn(), path, &png).map_err(|e| e.to_string())?;
     Ok(Some(png_data_url(&png)))
 }
 
 #[tauri::command]
 async fn copy_clip(app: tauri::AppHandle, id: i64) -> Result<Option<copy::PartialCopy>, String> {
     copy::copy(&app, id)
+}
+
+#[derive(serde::Serialize)]
+struct PasteTarget {
+    name: String,
+    icon: Option<String>,
+}
+
+#[tauri::command]
+async fn paste_target(db: tauri::State<'_, Db>) -> Result<Option<PasteTarget>, String> {
+    let Some(app) = paste::target() else {
+        return Ok(None);
+    };
+    // The app comes from the system, not from the page: its icon isn't limited to source apps
+    let icon = app_icon_url(&db, &app.path).ok().flatten();
+    Ok(Some(PasteTarget { name: app.name, icon }))
+}
+
+#[tauri::command]
+async fn paste_clip(app: tauri::AppHandle, id: i64) -> Result<Option<copy::PartialCopy>, String> {
+    paste::paste(&app, id)
 }
 
 #[derive(serde::Serialize)]
@@ -438,6 +460,8 @@ pub fn run() {
             clip_collections,
             get_app_icon,
             copy_clip,
+            paste_target,
+            paste_clip,
             copy_file,
             get_image_text,
             copy_image_text,

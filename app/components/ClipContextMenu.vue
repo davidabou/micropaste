@@ -10,6 +10,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   copy: []
+  paste: []
   copyText: []
   save: []
   info: []
@@ -23,12 +24,16 @@ const { collections } = useCollections()
 
 const memberOf = ref<number[]>([])
 const hasText = ref(false)
+const pasteTarget = ref<{ name: string, icon: string | null } | null>(null)
 const open = ref(false)
 const subOpen = ref(false)
 const opened = ref(false)
 watch(open, async (isOpen) => {
   if (!isOpen) return
   opened.value = true
+  invoke<{ name: string, icon: string | null } | null>('paste_target')
+    .then(target => (pasteTarget.value = target))
+    .catch(() => (pasteTarget.value = null))
   if (props.clip.kind !== 'text') {
     invoke<string | null>('get_image_text', { id: props.clip.id })
       .then(text => (hasText.value = !!text))
@@ -66,6 +71,13 @@ function toggle(collection: number, checked: boolean | 'indeterminate') {
             <ContextMenuItem :class="menuItem" @select="emit('copy')">
               <Icon name="gravity-ui:copy" :class="menuIcon" />
               Copy
+            </ContextMenuItem>
+            <ContextMenuItem v-if="pasteTarget" :class="menuItem" @select="emit('paste')">
+              <span class="flex w-3.5 shrink-0 justify-center">
+                <img v-if="pasteTarget.icon" :src="pasteTarget.icon" alt="" class="size-4 max-w-none" draggable="false">
+                <Icon v-else name="gravity-ui:square-dashed" class="size-4 shrink-0 opacity-60" />
+              </span>
+              <span class="truncate">Paste to {{ pasteTarget.name }}</span>
             </ContextMenuItem>
             <ContextMenuItem v-if="hasText" :class="menuItem" @select="emit('copyText')">
               <Icon name="gravity-ui:square-dashed-text" :class="menuIcon" />

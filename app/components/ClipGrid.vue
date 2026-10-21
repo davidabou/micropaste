@@ -28,6 +28,11 @@ function setCard(id: number, card: unknown) {
   else cards.delete(id)
 }
 
+async function paste(clip: Clip) {
+  await invoke('paste_clip', { id: clip.id })
+    .catch(error => notifyClip(clip.id, typeof error === 'string' ? error : 'Couldn’t paste'))
+}
+
 async function copyImageText(clip: Clip) {
   await invoke('copy_image_text', { id: clip.id })
     .then(() => notifyClip(clip.id, 'Copied text'))
@@ -161,6 +166,7 @@ function onRemoveFrom(clip: Clip, collection: number) {
                 :clip="clip"
                 :collection="collection"
                 @copy="cards.get(clip.id)?.copy()"
+                @paste="paste(clip)"
                 @copy-text="copyImageText(clip)"
                 @save="saveAs(clip)"
                 @info="emit('info', clip)"

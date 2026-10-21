@@ -59,6 +59,11 @@ pub fn foreground() -> Option<SourceApp> {
 }
 
 #[cfg(windows)]
+pub fn of_window(window: windows::Win32::Foundation::HWND) -> Option<SourceApp> {
+    describe(win::process_of_window(window)?)
+}
+
+#[cfg(windows)]
 fn describe(process: win::Process) -> Option<SourceApp> {
     if let Some(aumid) = process.app_user_model_id {
         let path = format!("{PACKAGED_APP_PREFIX}{aumid}");
