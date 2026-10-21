@@ -32,7 +32,7 @@ fn list_clips(
     favorites: Option<bool>,
 ) -> Result<Vec<Clip>, String> {
     let scope = Scope::new(collection, favorites.unwrap_or(false));
-    db::list(&db.0.lock().unwrap(), limit.unwrap_or(500), scope, &Filter::default()).map_err(|e| e.to_string())
+    db::list(&db.conn(), limit.unwrap_or(500), scope, &Filter::default()).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -45,70 +45,69 @@ fn search_clips(
     filter: Option<Filter>,
 ) -> Result<Vec<Clip>, String> {
     let scope = Scope::new(collection, favorites.unwrap_or(false));
-    db::search(&db.0.lock().unwrap(), &query, limit.unwrap_or(500), scope, &filter.unwrap_or_default())
-        .map_err(|e| e.to_string())
+    db::search(&db.conn(), &query, limit.unwrap_or(500), scope, &filter.unwrap_or_default()).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn list_sources(db: tauri::State<Db>, collection: Option<i64>, favorites: Option<bool>) -> Result<Vec<Source>, String> {
-    db::sources(&db.0.lock().unwrap(), Scope::new(collection, favorites.unwrap_or(false))).map_err(|e| e.to_string())
+    db::sources(&db.conn(), Scope::new(collection, favorites.unwrap_or(false))).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn set_favorite(db: tauri::State<Db>, id: i64, favorite: bool) -> Result<Clip, String> {
-    db::set_favorite(&db.0.lock().unwrap(), id, favorite, clipboard::now_ms()).map_err(|e| e.to_string())
+    db::set_favorite(&db.conn(), id, favorite, clipboard::now_ms()).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn count_clips(db: tauri::State<Db>) -> Result<i64, String> {
-    db::count(&db.0.lock().unwrap()).map_err(|e| e.to_string())
+    db::count(&db.conn()).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn list_collections(db: tauri::State<Db>) -> Result<Vec<Collection>, String> {
-    db::collections(&db.0.lock().unwrap()).map_err(|e| e.to_string())
+    db::collections(&db.conn()).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn create_collection(db: tauri::State<Db>, name: String) -> Result<Collection, String> {
     let name = collection_name(&name)?;
-    db::create_collection(&db.0.lock().unwrap(), name, clipboard::now_ms()).map_err(|e| e.to_string())
+    db::create_collection(&db.conn(), name, clipboard::now_ms()).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn rename_collection(db: tauri::State<Db>, id: i64, name: String) -> Result<(), String> {
     let name = collection_name(&name)?;
-    db::rename_collection(&db.0.lock().unwrap(), id, name).map_err(|e| e.to_string())
+    db::rename_collection(&db.conn(), id, name).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn reorder_collections(db: tauri::State<Db>, ids: Vec<i64>) -> Result<(), String> {
-    db::reorder_collections(&mut db.0.lock().unwrap(), &ids).map_err(|e| e.to_string())
+    db::reorder_collections(&mut db.conn(), &ids).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn delete_collection(db: tauri::State<Db>, id: i64) -> Result<(), String> {
-    db::delete_collection(&db.0.lock().unwrap(), id).map_err(|e| e.to_string())
+    db::delete_collection(&db.conn(), id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn add_to_collection(db: tauri::State<Db>, collection: i64, clip: i64) -> Result<(), String> {
-    db::add_to_collection(&db.0.lock().unwrap(), collection, clip, clipboard::now_ms()).map_err(|e| e.to_string())
+    db::add_to_collection(&db.conn(), collection, clip, clipboard::now_ms()).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn reorder_collection(db: tauri::State<Db>, collection: i64, clips: Vec<i64>) -> Result<(), String> {
-    db::reorder_collection(&mut db.0.lock().unwrap(), collection, &clips).map_err(|e| e.to_string())
+    db::reorder_collection(&mut db.conn(), collection, &clips).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn remove_from_collection(db: tauri::State<Db>, collection: i64, clip: i64) -> Result<(), String> {
-    db::remove_from_collection(&db.0.lock().unwrap(), collection, clip).map_err(|e| e.to_string())
+    db::remove_from_collection(&db.conn(), collection, clip).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn clip_collections(db: tauri::State<Db>, clip: i64) -> Result<Vec<i64>, String> {
-    db::clip_collections(&db.0.lock().unwrap(), clip).map_err(|e| e.to_string())
+    db::clip_collections(&db.conn(), clip).map_err(|e| e.to_string())
 }
 
 fn collection_name(name: &str) -> Result<&str, String> {
@@ -122,7 +121,7 @@ fn collection_name(name: &str) -> Result<&str, String> {
 #[tauri::command]
 async fn get_app_icon(db: tauri::State<'_, Db>, path: String) -> Result<Option<String>, String> {
     {
-        let conn = db.0.lock().unwrap();
+        let conn = db.conn();
         // Only serve icons of apps that clips were copied from, not arbitrary files
         if !db::is_source_app(&conn, &path).map_err(|e| e.to_string())? {
             return Ok(None);
@@ -135,7 +134,7 @@ async fn get_app_icon(db: tauri::State<'_, Db>, path: String) -> Result<Option<S
     let Some(png) = app_icon::extract_png(&path) else {
         return Ok(None);
     };
-    db::save_app_icon(&db.0.lock().unwrap(), &path, &png).map_err(|e| e.to_string())?;
+    db::save_app_icon(&db.conn(), &path, &png).map_err(|e| e.to_string())?;
     Ok(Some(png_data_url(&png)))
 }
 
@@ -158,7 +157,7 @@ struct FilePreview {
 #[tauri::command]
 async fn get_file_preview(db: tauri::State<'_, Db>, path: String, large: Option<bool>) -> Result<FilePreview, String> {
     // Only preview files that were copied, not arbitrary paths
-    if !db::is_copied_file(&db.0.lock().unwrap(), &path).map_err(|e| e.to_string())? {
+    if !db::is_copied_file(&db.conn(), &path).map_err(|e| e.to_string())? {
         return Err("Not a copied file".into());
     }
     let media = media::kind(std::path::Path::new(&path));
@@ -195,7 +194,7 @@ fn reveal_file(app: tauri::AppHandle, id: i64, path: String) -> Result<(), Strin
 
 #[tauri::command]
 async fn missing_files(db: tauri::State<'_, Db>, id: i64) -> Result<Vec<String>, String> {
-    let clip = db::get(&db.0.lock().unwrap(), id).map_err(|e| e.to_string())?;
+    let clip = db::get(&db.conn(), id).map_err(|e| e.to_string())?;
     if clip.kind != "files" {
         return Ok(Vec::new());
     }
@@ -214,7 +213,7 @@ async fn copy_file(app: tauri::AppHandle, id: i64, path: String) -> Result<(), S
 
 #[tauri::command]
 fn get_image_text(db: tauri::State<Db>, id: i64) -> Result<Option<String>, String> {
-    db::image_text(&db.0.lock().unwrap(), id).map_err(|e| e.to_string())
+    db::image_text(&db.conn(), id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -249,7 +248,7 @@ async fn drop_image(app: tauri::AppHandle, collection: i64, bytes: Vec<u8>) -> R
 
 #[tauri::command]
 fn delete_clip(app: tauri::AppHandle, db: tauri::State<Db>, id: i64) -> Result<(), String> {
-    history::remove(&app, &db.0.lock().unwrap(), id)
+    history::remove(&app, &db.conn(), id)
 }
 
 #[tauri::command]
@@ -262,7 +261,7 @@ async fn get_link_preview(
         return Ok(None);
     };
     {
-        let conn = db.0.lock().unwrap();
+        let conn = db.conn();
         // Only load links that were copied, not arbitrary URLs
         if !db::is_text_clip(&conn, &url).map_err(|e| e.to_string())? {
             return Ok(None);
@@ -285,7 +284,7 @@ async fn refresh_link_preview(
         return Ok(None);
     };
     let previous = {
-        let conn = db.0.lock().unwrap();
+        let conn = db.conn();
         if !db::is_text_clip(&conn, &url).map_err(|e| e.to_string())? {
             return Ok(None);
         }
@@ -318,7 +317,7 @@ async fn load_link_preview(
         preview = LinkPreview { stale: false, icon, ..previous };
     }
 
-    let conn = db.0.lock().unwrap();
+    let conn = db.conn();
     db::save_link_preview(&conn, &preview, clipboard::now_ms()).map_err(|e| e.to_string())?;
 
     for old_file in old_files {
@@ -353,7 +352,7 @@ fn set_retention_days(app: tauri::AppHandle, days: Option<u32>) -> Result<(), St
 
 #[tauri::command]
 fn count_expiring_clips(db: tauri::State<Db>, days: u32) -> Result<usize, String> {
-    history::expiring_count(&db.0.lock().unwrap(), days).map_err(|e| e.to_string())
+    history::expiring_count(&db.conn(), days).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

@@ -69,7 +69,7 @@ impl Watcher {
         };
         let source = source_app::detect(matches!(content, Content::Image { .. }));
         let db = self.app.state::<Db>();
-        let saved = db::save(&db.0.lock().unwrap(), clip, source.as_ref(), now_ms());
+        let saved = db::save(&db.conn(), clip, source.as_ref(), now_ms());
         saved.map_err(|e| e.to_string())
     }
 }

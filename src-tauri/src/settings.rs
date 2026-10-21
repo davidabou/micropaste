@@ -42,13 +42,13 @@ pub fn get(app: &AppHandle) -> Settings {
 
 fn read(app: &AppHandle, key: &str) -> Option<String> {
     let db = app.state::<Db>();
-    let conn = db.0.lock().unwrap();
+    let conn = db.conn();
     db::setting(&conn, key).ok().flatten()
 }
 
 fn write(app: &AppHandle, key: &str, value: &str) -> Result<(), String> {
     let db = app.state::<Db>();
-    let conn = db.0.lock().unwrap();
+    let conn = db.conn();
     db::set_setting(&conn, key, value).map_err(|e| e.to_string())
 }
 

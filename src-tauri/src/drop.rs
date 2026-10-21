@@ -20,7 +20,7 @@ struct Dropped {
 fn save(app: &AppHandle, collection: i64, clip: NewClip) -> Result<Clip, String> {
     let source = crate::source_app::foreground();
     let db = app.state::<Db>();
-    let conn = db.0.lock().unwrap();
+    let conn = db.conn();
     let saved = db::save_dropped(&conn, clip, source.as_ref(), now_ms()).map_err(|e| e.to_string())?;
     db::add_to_collection(&conn, collection, saved.id, now_ms()).map_err(|e| e.to_string())?;
     Ok(saved)

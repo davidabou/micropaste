@@ -17,7 +17,7 @@ pub struct Saved {
 /// The dialog runs here, not in the page: the page never gets to write files.
 /// `None` when the dialog is cancelled.
 pub fn save_as(app: &AppHandle, window: &Window, id: i64) -> Result<Option<Saved>, String> {
-    let clip = db::get(&app.state::<Db>().0.lock().unwrap(), id).map_err(|e| e.to_string())?;
+    let clip = db::get(&app.state::<Db>().conn(), id).map_err(|e| e.to_string())?;
     let dialog = app.dialog().file().set_parent(window);
     match clip.kind.as_str() {
         "image" => {

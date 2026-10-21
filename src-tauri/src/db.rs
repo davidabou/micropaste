@@ -1,5 +1,5 @@
 use std::path::Path;
-use std::sync::Mutex;
+use std::sync::{Mutex, MutexGuard, PoisonError};
 
 use rusqlite::{Connection, OptionalExtension, Row, params};
 use serde::{Deserialize, Serialize};
@@ -8,6 +8,13 @@ use crate::link_preview::LinkPreview;
 use crate::source_app::SourceApp;
 
 pub struct Db(pub Mutex<Connection>);
+
+impl Db {
+    pub fn conn(&self) -> MutexGuard<'_, Connection> {
+        // Ignores poisoning: SQLite rolls back unfinished transactions, so the connection stays sound
+        self.0.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+}
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]

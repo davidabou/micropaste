@@ -11,7 +11,7 @@ const DRAG_THUMBNAIL_SIZE: u32 = 128;
 const DRAG_ICON_SIZE: u32 = 64;
 
 pub fn start(app: &AppHandle, window: Window, id: i64) -> Result<(), String> {
-    let clip = db::get(&app.state::<Db>().0.lock().unwrap(), id).map_err(|e| e.to_string())?;
+    let clip = db::get(&app.state::<Db>().conn(), id).map_err(|e| e.to_string())?;
     let paths: Vec<PathBuf> = match clip.kind.as_str() {
         "image" => vec![image_file(app, &clip.content)?],
         "files" => clip.content.lines().map(PathBuf::from).filter(|path| path.exists()).collect(),

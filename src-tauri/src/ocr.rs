@@ -23,7 +23,7 @@ struct Recognized {
 /// One worker for every image, newest first: recognition is slow and the clips are only touched briefly.
 pub fn start(app: AppHandle) {
     let (sender, receiver) = mpsc::channel();
-    let pending = db::images_without_text(&app.state::<Db>().0.lock().unwrap()).unwrap_or_default();
+    let pending = db::images_without_text(&app.state::<Db>().conn()).unwrap_or_default();
     for id in pending {
         let _ = sender.send(id);
     }
@@ -46,7 +46,7 @@ fn run(app: &AppHandle, receiver: Receiver<i64>) {
     for id in receiver {
         let clip = {
             let db = app.state::<Db>();
-            let conn = db.0.lock().unwrap();
+            let conn = db.conn();
             match db::get(&conn, id) {
                 Ok(clip) if db::needs_image_text(&conn, id).unwrap_or(false) => clip,
                 _ => continue,
@@ -68,7 +68,7 @@ fn run(app: &AppHandle, receiver: Receiver<i64>) {
                 eprintln!("[ocr] cannot read image {id}: {e}");
                 String::new()
             });
-        let saved = db::set_image_text(&app.state::<Db>().0.lock().unwrap(), id, &text);
+        let saved = db::set_image_text(&app.state::<Db>().conn(), id, &text);
         match saved {
             Ok(()) => {
                 let _ = app.emit(IMAGE_TEXT_EVENT, Recognized { id, text });

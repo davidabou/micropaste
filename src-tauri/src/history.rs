@@ -50,7 +50,7 @@ fn purge(app: &AppHandle) -> Result<(), String> {
     let Some(days) = settings::retention_days(app) else { return Ok(()) };
     let removed = {
         let db = app.state::<Db>();
-        let conn = db.0.lock().unwrap();
+        let conn = db.conn();
         let expired = db::expired(&conn, now_ms() - i64::from(days) * DAY_MS).map_err(|e| e.to_string())?;
         let mut removed = Vec::with_capacity(expired.len());
         for id in expired {
