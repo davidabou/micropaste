@@ -138,17 +138,19 @@ const title = computed(() => {
 })
 const dimensions = computed(() => {
   if (shown.value?.width && shown.value.height) return { width: shown.value.width, height: shown.value.height }
+  if (svgSrc.value) return svgSize(text.value!)
   const preview = filePreview.value
   return files.value && !isGroup.value && preview?.width && preview.height ? { width: preview.width, height: preview.height } : null
 })
 const textStats = computed(() => {
-  if (!text.value || color.value || link.value) return null
+  if (!text.value || color.value || link.value || svgSrc.value) return null
   return {
     characters: text.value.length,
     words: text.value.trim().split(/\s+/).filter(Boolean).length,
     lines: text.value.split('\n').length
   }
 })
+const byteSize = computed(() => shown.value?.byteSize ?? (svgSrc.value ? new TextEncoder().encode(text.value!).length : null))
 const lastCopied = computed(() =>
   shown.value ? new Date(shown.value.createdAt).toLocaleString('en-US', { dateStyle: 'full', timeStyle: 'short' }) : ''
 )
@@ -407,7 +409,7 @@ const carouselButton = 'absolute top-1/2 flex size-7 -translate-y-1/2 cursor-poi
                 class="mb-4 rounded-lg bg-black/[3.73%] dark:bg-white/[6.05%]"
                 viewport-class="max-h-64"
               >
-                <p class="p-3 whitespace-pre-wrap wrap-anywhere select-text">
+                <p class="p-3 whitespace-pre-wrap wrap-anywhere select-text" :class="svgSrc && 'font-mono text-xs'">
                   {{ text }}
                 </p>
               </ScrollArea>
@@ -435,9 +437,9 @@ const carouselButton = 'absolute top-1/2 flex size-7 -translate-y-1/2 cursor-poi
                   <dt :class="label">Dimensions</dt>
                   <dd>{{ dimensions.width }} × {{ dimensions.height }}</dd>
                 </div>
-                <div v-if="shown.byteSize" class="flex justify-between gap-4">
+                <div v-if="byteSize" class="flex justify-between gap-4">
                   <dt :class="label">Size</dt>
-                  <dd>{{ formatBytes(shown.byteSize) }}</dd>
+                  <dd>{{ formatBytes(byteSize) }}</dd>
                 </div>
                 <div v-if="color" class="flex justify-between gap-4">
                   <dt :class="label">Format</dt>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { svgToDataUrl } from '@/utils/svg'
+import { svgSize, svgToDataUrl } from '@/utils/svg'
 
 function markup(url: string | null) {
   expect(url).toMatch(/^data:image\/svg\+xml;charset=utf-8,/)
@@ -33,5 +33,19 @@ describe('svgToDataUrl', () => {
     '<svg><unclosed></svg>'
   ])('rejects %j', (text) => {
     expect(svgToDataUrl(text, '#000')).toBeNull()
+  })
+})
+
+describe('svgSize', () => {
+  it('reads the width and height in pixels', () => {
+    expect(svgSize('<svg width="32px" height="16" viewBox="0 0 8 4"></svg>')).toEqual({ width: 32, height: 16 })
+  })
+
+  it('falls back to the viewBox for other units', () => {
+    expect(svgSize('<svg width="1em" height="1em" viewBox="0,0,24.5,24"></svg>')).toEqual({ width: 24.5, height: 24 })
+  })
+
+  it('has no size without either', () => {
+    expect(svgSize('<svg width="100%"></svg>')).toBeNull()
   })
 })
