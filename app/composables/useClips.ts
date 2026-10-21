@@ -174,9 +174,14 @@ export function useClips(
   }
 
   const onClipDropped = (clip: Clip, collectionId: number) => {
-    refreshCounts()
     const cached = listCache.get(collectionId)
-    if (cached) listCache.set(collectionId, [clip, ...without(cached, clip)!])
+    if (cached?.some(c => c.id === clip.id)) {
+      listCache.set(collectionId, cached.map(c => (c.id === clip.id ? clip : c)))
+      highlightClip(clip.id)
+      return
+    }
+    refreshCounts()
+    if (cached) listCache.set(collectionId, [clip, ...cached])
   }
 
   const dropIntoCollection = async (collectionId: number, content: { text: string } | { image: Uint8Array }) => {
@@ -186,11 +191,17 @@ export function useClips(
     onClipDropped(clip, collectionId)
   }
 
+  /** Resolves to `false` when the clip was already in the collection. */
   const addToCollection = async (clip: Clip, collectionId: number) => {
+    const cached = listCache.get(collectionId)
+    const already = cached
+      ? cached.some(c => c.id === clip.id)
+      : (await invoke<number[]>('clip_collections', { clip: clip.id }).catch((): number[] => [])).includes(collectionId)
+    if (already) return false
     await invoke('add_to_collection', { collection: collectionId, clip: clip.id })
     refreshCounts()
-    const cached = listCache.get(collectionId)
-    if (cached) listCache.set(collectionId, [clip, ...without(cached, clip)!])
+    if (cached) listCache.set(collectionId, [clip, ...cached])
+    return true
   }
 
   const removeFromCollection = async (clip: Clip, collectionId: number) => {

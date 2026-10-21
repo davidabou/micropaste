@@ -60,7 +60,7 @@ Local-first, fast, with a premium, native Windows 11 design (inspired by Supaste
 
 - `app.vue`: tabs (Favorites, History, collections), History grid always mounted, Favorites and collection grids, search, type and source filters, grid/list layout, external drop.
 - `components/`: `ClipCard` (tile), `ClipGrid`, `ClipContextMenu`, `ClipDetails` (side panel), `ClipFilters` (type Select and source app Combobox: the type rules match `copiedLink` and `copiedColor`, in SQL in `db.rs`), `SettingsPanel`, `ClipImage`, `MediaPlayer` (audio and video of the details panel, VueUse's `useMediaControls`: Chromium's native controls stay clipped when created during an animation), `AppIcon`, `CollectionTabs`, `TabPill`, `Tooltip`, `TitleBar`, `Button`, `Input`, `ScrollArea` (Reka ScrollArea; `layout-scroll` swaps in `LayoutScrollViewport`, a Motion viewport, for the grid's layout animations).
-- `composables/`: `useClips`, `useCollections`, `useTileDrag`, `useClipNotice` (shows a notice on a tile from anywhere), link and file previews, `useImageText` (text recognized in an image), `usePrefersDark` (VueUse's `usePreferredDark`, shared by every tile).
+- `composables/`: `useClips`, `useCollections`, `useTileDrag`, `useClipNotice` (shows a notice on a tile from anywhere, or `highlightClip` to pulse it), link and file previews, `useImageText` (text recognized in an image), `usePrefersDark` (VueUse's `usePreferredDark`, shared by every tile).
 - `assets/css/main.css`: global styles, including the `.skeleton` class for content still loading.
 - `utils/`: colors, SVG, links, files, bytes, `timeAgo.ts` (compact format for VueUse's `useTimeAgo`), `menu.ts` (shared menu animation).
 
@@ -68,6 +68,7 @@ Local-first, fast, with a premium, native Windows 11 design (inspired by Supaste
 
 - **History** = real copies (Ctrl+C). Content **dropped** from another app only goes into a collection (`in_history = 0`), never into the history, until it is actually copied (from another app or from the window). Its details say "Added" instead of "Copied" until then.
 - External drop is only available in collections.
+- The order of a collection is manual: dropping or adding a clip it already holds keeps its place (the tile pulses, or says "Already in …").
 - The Favorites tab holds every starred clip (dropped ones too), latest starred first, with no manual order: that's what collections are for.
 - Copies made from the window have "Micropaste" as their source.
 - Copy text on an image creates (or brings back) a text clip of it, source Micropaste, at the top of the history; the image clip itself never changes.

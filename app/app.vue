@@ -79,8 +79,8 @@ const settingsOpen = ref(false)
 
 const collectionName = (id: number) => collections.value.find(c => c.id === id)?.name ?? 'collection'
 async function addTo(clip: Clip, collectionId: number) {
-  await addToCollection(clip, collectionId)
-  notifyClip(clip.id, `Added to ${collectionName(collectionId)}`)
+  const added = await addToCollection(clip, collectionId)
+  notifyClip(clip.id, `${added ? 'Added to' : 'Already in'} ${collectionName(collectionId)}`)
 }
 async function removeFrom(clip: Clip, collectionId: number) {
   const shown = collectionId === shownCollection.value

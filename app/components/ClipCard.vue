@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Clip, PartialCopy } from '@/composables/useClips'
 import { invoke } from '@tauri-apps/api/core'
+import { animate } from 'motion-v'
 import { copiedText } from '@/composables/useClips'
 
 const props = defineProps<{
@@ -135,6 +136,11 @@ const color = computed(() => (props.clip.kind === 'text' ? copiedColor(props.cli
 
 const link = computed(() => (props.clip.kind === 'text' ? copiedLink(props.clip.content) : null))
 const root = useTemplateRef<HTMLElement>('root')
+watch(clipHighlight, (shown) => {
+  if (shown?.clip !== props.clip.id || !root.value) return
+  root.value.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  animate(root.value, { scale: [1, 1.035, 0.99, 1] }, { duration: 0.45, ease: 'easeInOut' })
+})
 // Relative to the grid: it slides in from off-screen
 const scroller = computed(() => root.value?.closest<HTMLElement>('[data-reka-scroll-area-viewport]') ?? null)
 const visible = ref(false)
