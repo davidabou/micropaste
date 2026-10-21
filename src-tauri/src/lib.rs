@@ -13,6 +13,7 @@ mod ocr;
 mod paste;
 mod save;
 mod settings;
+mod share;
 mod source_app;
 mod window_icon;
 
@@ -254,6 +255,11 @@ async fn start_drag(app: tauri::AppHandle, window: tauri::Window, id: i64) -> Re
 }
 
 #[tauri::command]
+async fn share_clip(app: tauri::AppHandle, window: tauri::Window, id: i64) -> Result<(), String> {
+    share::share(&app, window, id)
+}
+
+#[tauri::command]
 async fn start_file_drag(app: tauri::AppHandle, window: tauri::Window, id: i64, path: String) -> Result<(), String> {
     drag_out::start_file(&app, window, id, &path)
 }
@@ -472,6 +478,7 @@ pub fn run() {
             allow_media,
             save_clip_as,
             start_drag,
+            share_clip,
             start_file_drag,
             drop_text,
             drop_image,

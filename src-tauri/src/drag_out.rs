@@ -49,7 +49,7 @@ fn drag(app: &AppHandle, window: Window, paths: Vec<PathBuf>) -> Result<(), Stri
     rx.recv().map_err(|e| e.to_string())?
 }
 
-fn image_file(app: &AppHandle, hash: &str) -> Result<PathBuf, String> {
+pub fn image_file(app: &AppHandle, hash: &str) -> Result<PathBuf, String> {
     let dir = std::env::temp_dir().join("micropaste");
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let path = dir.join(format!("Micropaste {}.png", &hash[..8.min(hash.len())]));

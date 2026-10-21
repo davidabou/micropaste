@@ -45,6 +45,7 @@ Local-first, fast, with a premium, native Windows 11 design (inspired by Supaste
 | `images.rs` | Images stored as PNG by hash in `$APPDATA/images` |
 | `save.rs` | Save as… for images and files: the save dialog runs in Rust (`tauri-plugin-dialog`), so the page never writes files; a group goes to a folder, `name (2).ext` on conflicts |
 | `media.rs` | GIFs, videos and audio files of a clip played in the details panel: `allow_media` checks the path belongs to the clip, then adds that one file to the asset protocol scope |
+| `share.rs` | Share…: the Windows share panel (`DataTransferManager` through `IDataTransferManagerInterop`, on the window thread); text, links, images (temp copy, like a drag) and files; storage items are resolved off the window thread with a deferral |
 | `drag_out.rs` | Native drag of images and files to other apps |
 | `drop.rs` | External drop into a collection (files via WebView2 `postMessageWithAdditionalObjects`, text, images) |
 | `source_app.rs` | Source app (foreground app) |

@@ -61,6 +61,11 @@ async function paste(clip: Clip) {
     .catch(error => notifyClip(clip.id, typeof error === 'string' ? error : 'Couldn’t paste'))
 }
 
+async function share(clip: Clip) {
+  await invoke('share_clip', { id: clip.id })
+    .catch(error => notifyClip(clip.id, typeof error === 'string' ? error : 'Couldn’t share'))
+}
+
 async function copyImageText(clip: Clip) {
   await invoke('copy_image_text', { id: clip.id })
     .then(() => notifyClip(clip.id, 'Copied text'))
@@ -199,6 +204,7 @@ function onRemoveFrom(clip: Clip, collection: number) {
                 @paste="paste(clip)"
                 @copy-text="copyImageText(clip)"
                 @save="saveAs(clip)"
+                @share="share(clip)"
                 @info="emit('info', clip)"
                 @favorite="emit('favorite', clip)"
                 @delete="pending = { clip: clip.id, action: 'delete' }"

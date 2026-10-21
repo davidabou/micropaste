@@ -13,6 +13,7 @@ const emit = defineEmits<{
   paste: []
   copyText: []
   save: []
+  share: []
   info: []
   favorite: []
   delete: []
@@ -90,6 +91,10 @@ function toggle(collection: number, checked: boolean | 'indeterminate') {
             <ContextMenuItem v-if="saveLabel" :class="menuItem" @select="emit('save')">
               <Icon name="gravity-ui:file-arrow-down" :class="menuIcon" />
               {{ saveLabel }}
+            </ContextMenuItem>
+            <ContextMenuItem :class="menuItem" @select="emit('share')">
+              <Icon name="gravity-ui:arrow-up-from-square" :class="menuIcon" />
+              Share…
             </ContextMenuItem>
 
             <ContextMenuSeparator :class="menuSeparator" />
