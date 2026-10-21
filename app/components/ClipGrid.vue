@@ -22,6 +22,34 @@ const emit = defineEmits<{
   moveEnd: []
 }>()
 
+const container = useTemplateRef<HTMLElement>('container')
+function columns(tiles: HTMLElement[]) {
+  if (props.layout === 'list') return 1
+  const top = (tile?: HTMLElement) => Math.round(tile?.getBoundingClientRect().top ?? 0)
+  const count = tiles.findIndex(tile => top(tile) !== top(tiles[0]))
+  return count === -1 ? tiles.length : count
+}
+function onKeydown(event: KeyboardEvent) {
+  const tiles = [...(container.value?.querySelectorAll<HTMLElement>('[data-tile]') ?? [])]
+  const index = tiles.indexOf(event.target as HTMLElement)
+  if (index === -1 || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
+  const step = columns(tiles)
+  const last = tiles.length - 1
+  const targets: Record<string, number> = {
+    ArrowLeft: index - 1,
+    ArrowRight: index + 1,
+    ArrowUp: index - step,
+    // From the row above the last one, even without a tile right below
+    ArrowDown: Math.floor(index / step) < Math.floor(last / step) ? Math.min(last, index + step) : index
+  }
+  const target = targets[event.key]
+  if (target === undefined) return
+  event.preventDefault()
+  const tile = tiles[Math.min(last, Math.max(0, target))]
+  tile?.focus({ preventScroll: true })
+  tile?.scrollIntoView({ block: 'nearest' })
+}
+
 const cards = new Map<number, { copy: () => Promise<void> }>()
 function setCard(id: number, card: unknown) {
   if (card) cards.set(id, card as { copy: () => Promise<void> })
@@ -147,8 +175,10 @@ function onRemoveFrom(clip: Clip, collection: number) {
   <Motion class="absolute inset-0">
     <ScrollArea layout-scroll class="size-full">
       <div
+        ref="container"
         class="relative grid auto-rows-min p-2 text-xs"
         :class="layout === 'list' ? 'grid-cols-1 gap-1' : 'grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2'"
+        @keydown="onKeydown"
       >
         <LayoutGroup :key="layout">
           <AnimatePresence :initial="false">

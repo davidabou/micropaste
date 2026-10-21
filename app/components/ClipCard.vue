@@ -206,6 +206,7 @@ const copiedAt = computed(() => new Date(props.clip.createdAt).toLocaleString('e
       :animate="dragging ? { rotate: isList ? 0 : 1, scale: 0.96, opacity: 0.8 } : { rotate: 0, scale: pressed ? 0.98 : 1, opacity: 1 }"
       :transition="tileSpring"
       draggable="true"
+      data-tile
       @pointerdown="press"
       @click="copy"
       @dragstart="onDragStart"
