@@ -139,13 +139,31 @@ fn has_bitmap() -> bool {
     false
 }
 
-/// Password managers mark secrets with these formats so clipboard tools don't record them.
+/// Password managers mark secrets with these formats so clipboard tools don't record them,
+/// or with `CanIncludeInClipboardHistory` set to a DWORD 0 (the flag Win+V honors).
 #[cfg(windows)]
 fn is_excluded_from_history() -> bool {
-    ["ExcludeClipboardContentFromMonitorProcessing", "Clipboard Viewer Ignore"]
+    let marked = ["ExcludeClipboardContentFromMonitorProcessing", "Clipboard Viewer Ignore"]
         .into_iter()
         .filter_map(clipboard_win::register_format)
-        .any(|format| clipboard_win::is_format_avail(format.get()))
+        .any(|format| clipboard_win::is_format_avail(format.get()));
+    marked || !history_allowed()
+}
+
+#[cfg(windows)]
+fn history_allowed() -> bool {
+    let Some(format) = clipboard_win::register_format("CanIncludeInClipboardHistory") else {
+        return true;
+    };
+    if !clipboard_win::is_format_avail(format.get()) {
+        return true;
+    }
+    clipboard_win::get_clipboard::<Vec<u8>, _>(clipboard_win::formats::RawData(format.get()))
+        .is_ok_and(|data| dword_allows_history(&data))
+}
+
+fn dword_allows_history(data: &[u8]) -> bool {
+    data.get(..4).is_some_and(|bytes| bytes != [0; 4])
 }
 
 #[cfg(not(windows))]
@@ -155,4 +173,16 @@ fn is_excluded_from_history() -> bool {
 
 pub fn now_ms() -> i64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as i64).unwrap_or_default()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn history_flag_is_a_dword() {
+        assert!(dword_allows_history(&1u32.to_le_bytes()));
+        assert!(!dword_allows_history(&0u32.to_le_bytes()));
+        assert!(!dword_allows_history(&[1, 0]));
+    }
 }
