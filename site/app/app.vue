@@ -22,7 +22,10 @@ useSeoMeta({
 })
 
 useHead({
-  link: [{ rel: 'canonical', href: `${SITE_URL}/` }],
+  link: [
+    { rel: 'canonical', href: `${SITE_URL}/` },
+    { rel: 'alternate', type: 'text/markdown', href: '/llms.txt', title: 'Micropaste for LLMs' }
+  ],
   script: [{
     type: 'application/ld+json',
     innerHTML: JSON.stringify({
@@ -34,7 +37,17 @@ useHead({
       image,
       'applicationCategory': 'UtilitiesApplication',
       'operatingSystem': 'Windows 11',
+      'processorRequirements': 'x64, ARM64',
       'downloadUrl': DOWNLOAD_URL,
+      'screenshot': image,
+      'featureList': [
+        'Rich previews of text, code, links, images, screenshots, colors, SVG and files',
+        'Source app and time of every copy',
+        'Copy back in one click, or drag into any app',
+        'Custom collections and favorites',
+        'Search, including text recognized in images',
+        'Local-first: no account, no cloud, no telemetry'
+      ],
       'license': 'https://opensource.org/licenses/MIT',
       'isAccessibleForFree': true,
       'offers': { '@type': 'Offer', 'price': 0, 'priceCurrency': 'USD' },

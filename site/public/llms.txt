@@ -1,0 +1,46 @@
+# Micropaste
+
+> Micropaste is a free, open source (MIT) and local-first visual clipboard manager for Windows 11. It keeps everything you copy (text, code, links, images, screenshots, colors, SVG, files), shows each clip as a rich card, and lets you reuse it in one click or drag. Clips are organized by type, by source app and into your own collections.
+
+Micropaste is not just a Win+V replacement: Win+V forgets most of what you copy and shows the rest as a plain list, while Micropaste keeps it all as a library you can browse, search and organize. It runs next to Win+V and opens with Alt+Shift+V (configurable).
+
+- Platform: Windows 11 only (x64 and ARM64). It is not built or tested for Windows 10, macOS or Linux.
+- Price: free, no account, no trial, no paid tier.
+- License: MIT, source code on GitHub.
+- Privacy: clips are stored only on the user's computer, in `%APPDATA%\com.abou.micropaste`. No cloud, no sync, no telemetry. The only network requests fetch the title and image of copied links for previews; local and internal addresses are never fetched.
+- Passwords: secrets that password managers mark as excluded from clipboard history are never recorded.
+- Built with Tauri 2 (Rust) and Nuxt 4.
+- Author: David Abou (https://github.com/davidabou).
+
+## Features
+
+- Rich cards for every kind of copy: text and code, links (page title, image and domain), images and screenshots, colors (HEX, RGB, HSL, OKLCH shown as swatches), SVG markup (rendered as the drawing), files and folders (real Windows Explorer thumbnails, groups of files fanned out).
+- Every clip remembers the app it was copied from and when.
+- Reuse in one gesture: click a card to copy it back, drag it into any app, or right-click for paste, share, save, favorite and collections.
+- Collections: your own groups of clips shown as tabs next to the history. A clip can be in several collections, cards and tabs can be reordered by drag, and files, text or images can be dropped from other apps straight into a collection.
+- Favorites: star the clips you use all the time.
+- Search (Ctrl+F) through everything, including link preview titles and the text recognized in images (Windows OCR).
+- Details panel with a large preview, source app, date, dimensions and size.
+- Native Windows 11 design: Mica material, light and dark themes, grid or list layout.
+- Lives in the system tray, starts with Windows, closing the window only hides it.
+- Tidy by itself: clips unused for 30 days are cleaned up (configurable from 1 day to forever). Favorites and clips in collections are never removed.
+
+## Install
+
+- [Download the latest release](https://github.com/davidabou/micropaste/releases/latest): `Micropaste_x.y.z_x64-setup.exe`, or `arm64-setup.exe` for ARM PCs.
+- The installer isn't signed yet, so Windows SmartScreen may warn about it: click More info, then Run anyway.
+
+## Keyboard shortcuts
+
+- Alt+Shift+V: show or hide Micropaste from any app (can be changed in the settings)
+- Ctrl+F: search
+- Esc: clear the search, close a panel or a confirmation
+- Left and right arrows: browse the files of a group in the details panel
+
+## Links
+
+- [Website](https://micropaste.abou.dev/)
+- [Source code and README](https://github.com/davidabou/micropaste)
+- [Releases and changelog](https://github.com/davidabou/micropaste/releases)
+- [Report an issue](https://github.com/davidabou/micropaste/issues)
+- [Sponsor](https://github.com/sponsors/davidabou)
