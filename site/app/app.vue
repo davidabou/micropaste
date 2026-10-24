@@ -134,6 +134,17 @@ const windowsFacts = [
           <span>Your clips never leave your PC</span>
         </Motion>
 
+        <Motion v-bind="appear(2.2)">
+          <NuxtLink :to="PRODUCT_HUNT_URL" target="_blank" class="block">
+            <img
+              src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1285880&theme=light&t=1792824087003"
+              alt="Micropaste - Visual clipboard manager for Windows 11 | Product Hunt"
+              width="250"
+              height="54"
+            >
+          </NuxtLink>
+        </Motion>
+
         <Motion
           class="w-full max-w-200"
           :initial="{ opacity: 0, y: 40, scale: 0.96 }"

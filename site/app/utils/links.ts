@@ -3,6 +3,7 @@ export const REPO_URL = 'https://github.com/davidabou/micropaste'
 export const DOWNLOAD_URL = `${REPO_URL}/releases/latest`
 export const ISSUES_URL = `${REPO_URL}/issues`
 export const SPONSOR_URL = 'https://github.com/sponsors/davidabou'
+export const PRODUCT_HUNT_URL = 'https://www.producthunt.com/products/micropaste?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-micropaste'
 
 export const sections = [
   { label: 'Features', to: '#features' },
