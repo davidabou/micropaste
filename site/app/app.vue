@@ -37,7 +37,6 @@ useHead({
       image,
       'applicationCategory': 'UtilitiesApplication',
       'operatingSystem': 'Windows 11',
-      'processorRequirements': 'x64, ARM64',
       'downloadUrl': DOWNLOAD_URL,
       'screenshot': image,
       'featureList': [

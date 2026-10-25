@@ -4,7 +4,7 @@
 
 Micropaste is not just a Win+V replacement: Win+V forgets most of what you copy and shows the rest as a plain list, while Micropaste keeps it all as a library you can browse, search and organize. It runs next to Win+V and opens with Alt+Shift+V (configurable).
 
-- Platform: Windows 11 only (x64 and ARM64). It is not built or tested for Windows 10, macOS or Linux.
+- Platform: Windows 11 only. It is not built or tested for Windows 10, macOS or Linux.
 - Price: free, no account, no trial, no paid tier.
 - License: MIT, source code on GitHub.
 - Privacy: clips are stored only on the user's computer, in `%APPDATA%\com.abou.micropaste`. No cloud, no sync, no telemetry. The only network requests fetch the title and image of copied links for previews; local and internal addresses are never fetched.
@@ -27,7 +27,7 @@ Micropaste is not just a Win+V replacement: Win+V forgets most of what you copy 
 
 ## Install
 
-- [Download the latest release](https://github.com/davidabou/micropaste/releases/latest): `Micropaste_x.y.z_x64-setup.exe`, or `arm64-setup.exe` for ARM PCs.
+- [Download the latest release](https://github.com/davidabou/micropaste/releases/latest): `Micropaste_x.y.z_x64-setup.exe`.
 - The installer isn't signed yet, so Windows SmartScreen may warn about it: click More info, then Run anyway.
 
 ## Keyboard shortcuts
