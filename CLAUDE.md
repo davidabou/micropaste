@@ -24,6 +24,7 @@ Local-first, fast, with a premium, native Windows 11 design (inspired by Supaste
   - The identifier `com.abou.micropaste` must **not** change: the data lives in `%APPDATA%\com.abou.micropaste`.
   - Build: `bun run tauri build`, NSIS installer in `src-tauri/target/release/bundle/nsis/`.
   - Release: `bun run release` (bumpp, see `bump.config.ts`) asks for the new version, writes it in `package.json`, `tauri.conf.json`, `Cargo.toml` and `Cargo.lock`, then commits and tags it (`v0.2.0`). It refuses to run with uncommitted changes. Then `git push --follow-tags`: `release.yml` builds the installer into a draft GitHub release, with release notes written by changelogithub from the `feat:` and `fix:` commits since the previous tag.
+  - Microsoft Store: `release.yml` then bundles a second installer with `tauri.microsoftstore.conf.json` (WebView2 inside, as the Store requires) and uploads it to Cloudflare R2 (`R2_*` secrets) as `Micropaste_x.y.z_x64-setup.exe`, never overwritten (the Store requires the file behind a link never changes). The `micropaste` Cloudflare Worker serves the bucket at `https://micropaste.david-abou.workers.dev/<file>` (no redirect, as the Store requires); Partner Center links to it, with `/S` as the silent install argument. The Store also requires the installer to be code signed: not set up yet.
 - **Nuxt 4** (`app/`, static output via `nuxt generate`), **Tailwind v4**.
 - **Reka UI** (`reka-ui/nuxt`) for Dialog, ContextMenu, Tooltip, AlertDialog…
 - **motion-v** (`motion-v/nuxt`) for all animations (springs).
