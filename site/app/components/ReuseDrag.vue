@@ -43,11 +43,11 @@ const ghost = computed(() => {
           <span class="flex h-6 items-center rounded-md bg-black/[5.78%] px-2.5 text-xs font-medium">History</span>
         </div>
 
-        <div ref="source" class="absolute top-[52px] left-3 h-27.5 w-36.5 overflow-hidden rounded-lg border border-black/[5.78%]">
+        <div ref="source" class="absolute top-13 left-3 h-27.5 w-36.5 overflow-hidden rounded-lg border border-black/[5.78%]">
           <img src="/background.jpg" alt="" draggable="false" class="size-full object-cover">
         </div>
 
-        <div class="absolute top-[170px] left-3 flex h-9.5 w-36.5 flex-col justify-center gap-1.5 rounded-lg border border-black/[5.78%] bg-black/[3.73%] px-3">
+        <div class="absolute top-42.5 left-3 flex h-9.5 w-36.5 flex-col justify-center gap-1.5 rounded-lg border border-black/[5.78%] bg-black/[3.73%] px-3">
           <span class="h-1.5 w-24 rounded-full bg-black/10" />
           <span class="h-1.5 w-16 rounded-full bg-black/10" />
         </div>
