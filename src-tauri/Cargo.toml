@@ -39,6 +39,7 @@ tauri-plugin-single-instance = "2.5.3"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "gif", "bmp"] }
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-dialog = "2"
+tauri-plugin-updater = { version = "2", default-features = false, features = ["native-tls"] }
 
 [lints.clippy]
 dbg_macro = "deny"

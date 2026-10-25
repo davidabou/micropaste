@@ -52,6 +52,7 @@ Local-first, fast, with a premium, native Windows 11 design (inspired by Supaste
 | `link_preview.rs` | Link previews |
 | `ocr.rs` | Text in images and single image files (Windows OCR, user profile languages): one background worker, newest first, backfills at startup; `image_text` is `NULL` until done, `''` when there's no text; searched like the content, emits `image-text-recognized` |
 | `settings.rs` | Settings stored in the `settings` table: global shortcut, history retention, launch at startup, grid/list layout |
+| `updater.rs` | Updates (`tauri-plugin-updater`): checks `latest.json` of the latest published GitHub release at startup then every 6 hours, downloads in the background, emits `update-ready`; installing runs the NSIS installer, which quits and reopens the app. Updates are signed with the updater key (`TAURI_SIGNING_PRIVATE_KEY` secret, public key in `tauri.conf.json`) |
 | `background.rs` | Tray icon, close = hide, autostart, single-instance, `--hidden`, global shortcut (Alt+Shift+V by default), window placed in the bottom right corner at launch |
 | `window_icon.rs` | Sharp window icon at the right DPI |
 | `app_icon.rs` | Source app icons, file thumbnails and file type names as the Explorer shows them |
@@ -60,7 +61,7 @@ Local-first, fast, with a premium, native Windows 11 design (inspired by Supaste
 
 - `app.vue`: tabs (Favorites, History, collections), History grid always mounted, Favorites and collection grids, search, type and source filters, grid/list layout, external drop.
 - `components/`: `ClipCard` (tile), `ClipGrid`, `ClipContextMenu`, `ClipDetails` (side panel), `ClipFilters` (type Select and source app Combobox: the type rules match `copiedLink` and `copiedColor`, in SQL in `db.rs`), `SettingsPanel`, `ClipImage`, `MediaPlayer` (audio and video of the details panel, VueUse's `useMediaControls`: Chromium's native controls stay clipped when created during an animation), `AppIcon`, `CollectionTabs`, `TabPill`, `TabCount` (tab count, animated by `@number-flow/vue`), `Tooltip`, `TitleBar`, `Button`, `Input`, `ScrollArea` (Reka ScrollArea; `layout-scroll` swaps in `LayoutScrollViewport`, a Motion viewport, for the grid's layout animations).
-- `composables/`: `useClips`, `useCollections`, `useTileDrag`, `useClipNotice` (shows a notice on a tile from anywhere, or `highlightClip` to pulse it), link and file previews, `useImageText` (text recognized in an image), `usePrefersDark` (VueUse's `usePreferredDark`, shared by every tile).
+- `composables/`: `useClips`, `useCollections`, `useTileDrag`, `useClipNotice` (shows a notice on a tile from anywhere, or `highlightClip` to pulse it), link and file previews, `useImageText` (text recognized in an image), `useUpdate` (update ready to install, Settings row and dot on the gear), `usePrefersDark` (VueUse's `usePreferredDark`, shared by every tile).
 - `assets/css/main.css`: global styles, including the `.skeleton` class for content still loading.
 - `utils/`: colors, SVG, links, files, bytes, `timeAgo.ts` (compact format for VueUse's `useTimeAgo`), `menu.ts` (shared menu animation).
 

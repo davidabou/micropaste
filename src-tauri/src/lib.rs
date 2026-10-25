@@ -15,6 +15,7 @@ mod save;
 mod settings;
 mod share;
 mod source_app;
+mod updater;
 mod window_icon;
 
 use std::sync::Mutex;
@@ -428,6 +429,21 @@ fn page_ready(app: tauri::AppHandle) {
     background::page_ready(&app);
 }
 
+#[tauri::command]
+fn ready_update(app: tauri::AppHandle) -> Option<String> {
+    updater::ready_version(&app)
+}
+
+#[tauri::command]
+async fn check_for_update(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    updater::fetch(&app).await
+}
+
+#[tauri::command]
+fn install_update(app: tauri::AppHandle) -> Result<(), String> {
+    updater::install(&app)
+}
+
 fn backfill_image_sizes(conn: &rusqlite::Connection, images_dir: &std::path::Path) {
     let Ok(images) = db::images_without_size(conn) else { return };
     for (id, hash) in images {
@@ -468,6 +484,7 @@ pub fn run() {
             ocr::start(app.handle().clone());
             clipboard::start_watcher(app.handle().clone());
             history::start_cleanup(app.handle().clone());
+            updater::start(app.handle().clone());
             background::setup(app)?;
 
             Ok(())
@@ -481,6 +498,7 @@ pub fn run() {
         .plugin(background::shortcut_plugin())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             list_clips,
             search_clips,
@@ -526,7 +544,10 @@ pub fn run() {
             set_launch_at_startup,
             set_layout,
             hide_window,
-            page_ready
+            page_ready,
+            ready_update,
+            check_for_update,
+            install_update
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

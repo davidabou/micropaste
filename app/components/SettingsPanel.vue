@@ -170,6 +170,13 @@ function onPanelAnimated() {
 }
 
 const thumbSpring = { type: 'spring', bounce: 0.15, duration: 0.3 } as const
+
+const { currentVersion, readyVersion, status: updateStatus, check: checkForUpdate, install: installUpdate } = useUpdate()
+const updateDescription = computed(() => {
+  if (readyVersion.value) return `Version ${readyVersion.value} is ready to install`
+  if (updateStatus.value === 'upToDate') return `Micropaste ${currentVersion.value} is up to date`
+  return `Version ${currentVersion.value}`
+})
 </script>
 
 <template>
@@ -325,6 +332,24 @@ const thumbSpring = { type: 'spring', bounce: 0.15, duration: 0.3 } as const
                   :transition="thumbSpring"
                 />
               </SwitchRoot>
+
+              <div class="min-w-0">
+                <p class="font-medium">
+                  Updates
+                </p>
+                <p class="text-xs opacity-60">
+                  {{ updateDescription }}
+                </p>
+                <p v-if="updateStatus === 'failed'" class="mt-1 text-xs text-[#c42b1c] dark:text-[#ff99a4]">
+                  Couldn’t check for updates
+                </p>
+              </div>
+              <Button v-if="readyVersion" variant="accent" class="w-full" @click="installUpdate">
+                <span class="truncate">Restart to update</span>
+              </Button>
+              <Button v-else variant="filled" class="w-full" :disabled="updateStatus === 'checking'" @click="checkForUpdate">
+                <span class="truncate font-normal">{{ updateStatus === 'checking' ? 'Checking…' : 'Check for updates' }}</span>
+              </Button>
             </div>
           </ScrollArea>
         </Motion>

@@ -79,6 +79,7 @@ const historyTransition = computed(() => (historySwipes.value ? swipeTransition 
 
 const detailsClip = ref<Clip | null>(null)
 const settingsOpen = ref(false)
+const { readyVersion } = useUpdate()
 
 const collectionName = (id: number) => collections.value.find(c => c.id === id)?.name ?? 'collection'
 async function addTo(clip: Clip, collectionId: number) {
@@ -194,9 +195,12 @@ useEventListener('dragleave', onDragLeave)
               @click="layout = layout === 'grid' ? 'list' : 'grid'"
             />
           </Tooltip>
-          <Tooltip content="Settings">
-            <Button icon="gravity-ui:gear" size="sm" @click="settingsOpen = true" />
-          </Tooltip>
+          <div class="relative">
+            <Tooltip :content="readyVersion ? 'Settings · Update ready' : 'Settings'">
+              <Button icon="gravity-ui:gear" size="sm" @click="settingsOpen = true" />
+            </Tooltip>
+            <span v-if="readyVersion" class="pointer-events-none absolute top-1 right-1 size-1.5 rounded-full bg-[#005fb8] dark:bg-[#60cdff]" />
+          </div>
         </div>
       </TitleBar>
 
