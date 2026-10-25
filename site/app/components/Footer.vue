@@ -9,7 +9,9 @@ const columns = [
     links: [
       { label: 'GitHub', to: REPO_URL },
       { label: 'Report an issue', to: ISSUES_URL },
-      { label: 'Sponsor', to: SPONSOR_URL }
+      { label: 'Sponsor', to: SPONSOR_URL },
+      { label: 'Privacy policy', to: PRIVACY_URL },
+      { label: 'Code signing policy', to: CODE_SIGNING_URL }
     ]
   },
   {
