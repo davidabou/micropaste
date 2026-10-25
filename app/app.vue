@@ -6,9 +6,10 @@ const search = ref('')
 const tab = ref<Tab>('history')
 const filter = ref<ClipFilter>({ kind: null, source: null })
 const layout = ref<'grid' | 'list'>('grid')
-// The clips wait for it, the history skeletons don't: they are in the prerendered page
+// The clips wait for it, the history skeletons don't, so they show right away
 const layoutLoaded = ref(false)
 onMounted(async () => {
+  invoke('page_ready')
   const settings = await invoke<{ layout: 'grid' | 'list' | null }>('get_settings').catch(() => null)
   layout.value = settings?.layout ?? 'grid'
   layoutLoaded.value = true

@@ -21,7 +21,7 @@ async function refresh() {
 }
 
 export function useCollections() {
-  if (import.meta.client && !loaded) {
+  if (!loaded) {
     loaded = true
     refresh()
     listen('clip-added', () => refresh())

@@ -423,6 +423,11 @@ fn hide_window(app: tauri::AppHandle) {
     background::hide_window(&app);
 }
 
+#[tauri::command]
+fn page_ready(app: tauri::AppHandle) {
+    background::page_ready(&app);
+}
+
 fn backfill_image_sizes(conn: &rusqlite::Connection, images_dir: &std::path::Path) {
     let Ok(images) = db::images_without_size(conn) else { return };
     for (id, hash) in images {
@@ -520,7 +525,8 @@ pub fn run() {
             count_expiring_clips,
             set_launch_at_startup,
             set_layout,
-            hide_window
+            hide_window,
+            page_ready
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

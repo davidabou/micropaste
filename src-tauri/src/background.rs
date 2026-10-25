@@ -1,3 +1,4 @@
+use std::sync::Mutex;
 use std::sync::atomic::Ordering;
 
 use tauri::image::Image;
@@ -19,7 +20,33 @@ struct TrayItems {
     startup: CheckMenuItem<Wry>,
 }
 
+struct PageState {
+    ready: bool,
+    show_when_ready: bool,
+}
+
+// Vue renders the page (no prerendered HTML): shown before, the window would be empty
+static PAGE: Mutex<PageState> = Mutex::new(PageState { ready: false, show_when_ready: false });
+
+pub fn page_ready(app: &AppHandle) {
+    let show = {
+        let mut page = PAGE.lock().unwrap();
+        page.ready = true;
+        std::mem::take(&mut page.show_when_ready)
+    };
+    if show {
+        show_window(app);
+    }
+}
+
 pub fn show_window(app: &AppHandle) {
+    {
+        let mut page = PAGE.lock().unwrap();
+        if !page.ready {
+            page.show_when_ready = true;
+            return;
+        }
+    }
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.unminimize();
         let _ = window.show();
@@ -69,7 +96,7 @@ pub fn setup(app: &mut App) -> tauri::Result<()> {
     move_to_bottom_right(&window);
 
     if !std::env::args().any(|arg| arg == HIDDEN_ARG) {
-        let _ = window.show();
+        show_window(app.handle());
     }
 
     let shortcut = settings::shortcut(app.handle());

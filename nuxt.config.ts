@@ -6,6 +6,7 @@ const host = process.env.TAURI_DEV_HOST
 export default defineNuxtConfig({
   modules: ['@nuxt/eslint', '@nuxt/fonts', '@nuxt/icon/module', 'motion-v/nuxt', 'reka-ui/nuxt', '@vueuse/nuxt'],
   compatibilityDate: '2025-07-15',
+  ssr: false,
   devtools: { enabled: true },
   app: {
     head: {
