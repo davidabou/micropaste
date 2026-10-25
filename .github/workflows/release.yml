@@ -72,7 +72,7 @@ jobs:
           releaseBody: |
             ${{ steps.changelog.outputs.notes }}
 
-            Download `x64-setup.exe` below to install Micropaste.
+            Download `x64-setup.exe` below to install Micropaste. [Privacy policy](https://github.com/davidabou/micropaste/blob/main/PRIVACY.md) · [Code signing policy](https://github.com/davidabou/micropaste/blob/main/CODE_SIGNING.md)
           releaseDraft: true
 
       # Same app, with WebView2 inside the installer as the Store requires; replaces the installer above once uploaded

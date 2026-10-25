@@ -95,7 +95,7 @@ Download `Micropaste_x.y.z_x64-setup.exe` and run it.
 > [!NOTE]
 > The installer isn't signed yet, so Windows SmartScreen may warn you. Click **More info**, then **Run anyway**.
 
-Your data is stored locally in `%APPDATA%\com.abou.micropaste`.
+Your data is stored locally in `%APPDATA%\com.abou.micropaste`. See the [privacy policy](PRIVACY.md) and the [code signing policy](CODE_SIGNING.md).
 
 ## Keyboard shortcuts
 
