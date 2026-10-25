@@ -37,8 +37,6 @@ jobs:
       - uses: oven-sh/setup-bun@v2
 
       - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-pc-windows-msvc
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -60,8 +58,7 @@ jobs:
             echo 'EOF'
           } >> "$GITHUB_OUTPUT"
 
-      - name: Build the x64 installer
-        id: x64
+      - name: Build the installer
         uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -72,15 +69,14 @@ jobs:
           releaseBody: |
             ${{ steps.changelog.outputs.notes }}
 
-            Download the installer below to install Micropaste: `x64-setup.exe` for most PCs, `arm64-setup.exe` for ARM PCs (Snapdragon).
+            Download `x64-setup.exe` below to install Micropaste.
           releaseDraft: true
 
-      # Cross-compiled on the same runner, uploaded to the release drafted above
-      - name: Build the ARM64 installer
-        uses: tauri-apps/tauri-action@v1
+      - name: Upload the installer to Vercel Blob
+        shell: bash
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tauriScript: bun tauri
-          args: --target aarch64-pc-windows-msvc
-          releaseId: ${{ steps.x64.outputs.releaseId }}
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+        run: |
+          version=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          name="Micropaste_${version}_x64-setup.exe"
+          bunx vercel@64 blob put "src-tauri/target/release/bundle/nsis/$name" --pathname "$name" --access public

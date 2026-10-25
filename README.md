@@ -90,7 +90,7 @@ Favorites and clips in collections are never touched.
 
 ## Installation
 
-Download `Micropaste_x.y.z_x64-setup.exe` (or `arm64-setup.exe` for ARM PCs) and run it.
+Download `Micropaste_x.y.z_x64-setup.exe` and run it.
 
 > [!NOTE]
 > The installer isn't signed yet, so Windows SmartScreen may warn you. Click **More info**, then **Run anyway**.
