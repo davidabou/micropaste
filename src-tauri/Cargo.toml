@@ -31,7 +31,7 @@ png = "0.18.1"
 base64 = "0.23.1"
 blake3 = "1.8.7"
 reqwest = { version = "0.13", default-features = false, features = ["native-tls", "charset", "http2"] }
-scraper = "0.27"
+scraper = "0.29"
 url = "2"
 drag = "2.1.1"
 tauri-plugin-autostart = "2.7.0"
@@ -58,4 +58,4 @@ strip = true
 webview2-com = "0.39"
 clipboard-win = "5.4"
 windows = { version = "0.62", features = ["Win32_Foundation", "Win32_System_DataExchange", "Win32_UI_WindowsAndMessaging", "Win32_System_Threading", "Win32_Storage_FileSystem", "Win32_UI_Shell", "Win32_Graphics_Gdi", "Win32_Storage_Packaging_Appx", "Win32_System_Com", "Win32_System_Diagnostics_ToolHelp", "Win32_System_Registry", "Win32_System_LibraryLoader", "Win32_UI_HiDpi", "Win32_UI_Input_KeyboardAndMouse", "Win32_Graphics_Dwm", "Media_Ocr", "ApplicationModel_DataTransfer", "Foundation_Collections", "Storage", "Storage_Search", "Graphics_Imaging", "Storage_Streams"] }
-windows-collections = "0.3"
+windows-collections = "0.100"
