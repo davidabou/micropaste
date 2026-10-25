@@ -52,7 +52,7 @@ Local-first, fast, with a premium, native Windows 11 design (inspired by Supaste
 | `source_app.rs` | Source app (foreground app) |
 | `link_preview.rs` | Link previews |
 | `ocr.rs` | Text in images and single image files (Windows OCR, user profile languages): one background worker, newest first, backfills at startup; `image_text` is `NULL` until done, `''` when there's no text; searched like the content, emits `image-text-recognized` |
-| `settings.rs` | Settings stored in the `settings` table: global shortcut, history retention, launch at startup, grid/list layout |
+| `settings.rs` | Settings stored in the `settings` table: global shortcut, history retention, launch at startup, link previews (off, no site of a copied link is contacted: `PRIVACY.md` promises it), grid/list layout |
 | `updater.rs` | Updates (`tauri-plugin-updater`): checks `latest.json` of the latest published GitHub release at startup then every 6 hours, downloads in the background, emits `update-ready`; installing runs the NSIS installer, which quits and reopens the app. Updates are signed with the updater key (`TAURI_SIGNING_PRIVATE_KEY` secret, public key in `tauri.conf.json`) |
 | `background.rs` | Tray icon, close = hide, autostart, single-instance, `--hidden`, global shortcut (Alt+Shift+V by default), window placed in the bottom right corner at launch |
 | `window_icon.rs` | Sharp window icon at the right DPI |

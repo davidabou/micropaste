@@ -10,6 +10,7 @@ interface Settings {
   shortcut: string
   retentionDays: number | null
   launchAtStartup: boolean
+  linkPreviews: boolean
 }
 const settings = ref<Settings | null>(null)
 watch(() => props.open, async (open) => {
@@ -97,6 +98,12 @@ function applyRetention(days: number | null) {
 async function setLaunchAtStartup(enabled: boolean) {
   if (!settings.value) return
   settings.value.launchAtStartup = await invoke<boolean>('set_launch_at_startup', { enabled }).catch(() => !enabled)
+}
+
+function setLinkPreviews(enabled: boolean) {
+  if (!settings.value) return
+  settings.value.linkPreviews = enabled
+  invoke('set_link_previews', { enabled })
 }
 
 const recording = ref(false)
@@ -329,6 +336,28 @@ const updateDescription = computed(() => {
                   :class="settings.launchAtStartup ? 'dark:bg-[#2c2c2c]' : 'dark:bg-white/80'"
                   :initial="false"
                   :animate="{ x: settings.launchAtStartup ? 19 : 3 }"
+                  :transition="thumbSpring"
+                />
+              </SwitchRoot>
+
+              <div class="min-w-0">
+                <p class="font-medium">
+                  Link previews
+                </p>
+                <p class="text-xs opacity-60">
+                  Loads the title and image of copied links from their site
+                </p>
+              </div>
+              <SwitchRoot
+                :model-value="settings.linkPreviews"
+                class="flex h-5 w-9 shrink-0 cursor-pointer items-center justify-self-end rounded-full bg-black/9 transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current data-[state=checked]:bg-black/85 dark:bg-white/11 dark:data-[state=checked]:bg-white"
+                @update:model-value="setLinkPreviews"
+              >
+                <Motion
+                  class="size-3.5 rounded-full bg-white shadow-sm"
+                  :class="settings.linkPreviews ? 'dark:bg-[#2c2c2c]' : 'dark:bg-white/80'"
+                  :initial="false"
+                  :animate="{ x: settings.linkPreviews ? 19 : 3 }"
                   :transition="thumbSpring"
                 />
               </SwitchRoot>

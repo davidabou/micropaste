@@ -354,6 +354,9 @@ async fn load_link_preview(
     parsed: &url::Url,
     previous: Option<LinkPreview>,
 ) -> Result<Option<LinkPreview>, String> {
+    if !settings::link_previews(app) {
+        return Ok(previous);
+    }
     let images_dir = images::dir(app).map_err(|e| e.to_string())?;
     let Ok(mut preview) = link_preview::fetch(parsed, &images_dir).await else {
         return Ok(previous);
@@ -412,6 +415,11 @@ fn count_expiring_clips(db: tauri::State<Db>, days: u32) -> Result<usize, String
 #[tauri::command]
 fn set_launch_at_startup(app: tauri::AppHandle, enabled: bool) -> Result<bool, String> {
     settings::set_launch_at_startup(&app, enabled)
+}
+
+#[tauri::command]
+fn set_link_previews(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
+    settings::set_link_previews(&app, enabled)
 }
 
 #[tauri::command]
@@ -542,6 +550,7 @@ pub fn run() {
             set_retention_days,
             count_expiring_clips,
             set_launch_at_startup,
+            set_link_previews,
             set_layout,
             hide_window,
             page_ready,

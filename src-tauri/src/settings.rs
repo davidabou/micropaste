@@ -13,6 +13,7 @@ const SHORTCUT_KEY: &str = "shortcut";
 const RETENTION_KEY: &str = "retention_days";
 const LAYOUT_KEY: &str = "layout";
 const LAUNCH_AT_STARTUP_KEY: &str = "launch_at_startup";
+const LINK_PREVIEWS_KEY: &str = "link_previews";
 const LAYOUTS: [&str; 2] = ["grid", "list"];
 const DEFAULT_SHORTCUT: &str = "Alt+Shift+V";
 const DEFAULT_RETENTION_DAYS: u32 = 30;
@@ -27,6 +28,7 @@ pub struct Settings {
     shortcut: String,
     retention_days: Option<u32>,
     launch_at_startup: bool,
+    link_previews: bool,
     /// `None` until chosen once.
     layout: Option<String>,
 }
@@ -36,6 +38,7 @@ pub fn get(app: &AppHandle) -> Settings {
         shortcut: shortcut(app),
         retention_days: retention_days(app),
         launch_at_startup: app.autolaunch().is_enabled().unwrap_or(false),
+        link_previews: link_previews(app),
         layout: read(app, LAYOUT_KEY).filter(|layout| LAYOUTS.contains(&layout.as_str())),
     }
 }
@@ -62,6 +65,15 @@ pub fn retention_days(app: &AppHandle) -> Option<u32> {
         None => Some(DEFAULT_RETENTION_DAYS),
         Some(value) => value.parse().ok(),
     }
+}
+
+/// On by default. Off, the app never contacts the sites of copied links.
+pub fn link_previews(app: &AppHandle) -> bool {
+    read(app, LINK_PREVIEWS_KEY).is_none_or(|value| value != "false")
+}
+
+pub fn set_link_previews(app: &AppHandle, enabled: bool) -> Result<(), String> {
+    write(app, LINK_PREVIEWS_KEY, &enabled.to_string())
 }
 
 pub fn set_shortcut(app: &AppHandle, shortcut: &str) -> Result<(), String> {
