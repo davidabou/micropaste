@@ -40,11 +40,13 @@ useHead({
       'downloadUrl': DOWNLOAD_URL,
       'screenshot': image,
       'featureList': [
-        'Rich previews of text, code, links, images, screenshots, colors, SVG and files',
+        'Rich previews of text, code, links, images, screenshots, colors, SVG, files, GIFs, videos and audio',
         'Source app and time of every copy',
-        'Copy back in one click, or drag into any app',
-        'Custom collections and favorites',
+        'Copy back in one click, drag into any app, paste into the app used last or share',
+        'Custom collections and a Favorites tab',
+        'Opens with Win+V, in place of the Windows clipboard',
         'Search, including text recognized in images',
+        'Automatic updates',
         'Local-first: no account, no cloud, no telemetry'
       ],
       'license': 'https://opensource.org/licenses/MIT',
@@ -84,7 +86,7 @@ const windowsFacts = [
   {
     icon: 'gravity-ui:keyboard',
     title: 'One shortcut away',
-    description: 'Alt+Shift+V opens it in the bottom right corner, from any app. Pick your own in the settings.'
+    description: 'Win+V opens it in place of the Windows clipboard, from any app. Pick your own in the settings.'
   },
   {
     icon: 'gravity-ui:tray',

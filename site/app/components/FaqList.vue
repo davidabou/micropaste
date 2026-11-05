@@ -18,7 +18,11 @@ const questions = [
   },
   {
     question: 'Does it replace Win+V?',
-    answer: 'It sits next to it. Win+V keeps working, and Micropaste opens with Alt+Shift+V, or any shortcut you pick in the settings.'
+    answer: 'Yes, Micropaste opens with Win+V in place of the Windows clipboard panel. Pick another shortcut in the settings and Win+V goes back to Windows.'
+  },
+  {
+    question: 'Does it update itself?',
+    answer: 'Yes. New versions download quietly in the background, then install from the settings in one click.'
   },
   {
     question: 'How long are clips kept?',

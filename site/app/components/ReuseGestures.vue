@@ -21,7 +21,7 @@ const gestures = [
   {
     title: 'Right-click',
     icon: 'gravity-ui:square-list-ul',
-    description: 'The full menu: copy, details, favorite, add to collections, delete.',
+    description: 'The full menu: copy, paste into the app you used last, save, share, favorite, add to collections, delete.',
     scene: ReuseMenu
   }
 ]

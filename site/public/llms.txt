@@ -2,7 +2,7 @@
 
 > Micropaste is a free, open source (MIT) and local-first visual clipboard manager for Windows 11. It keeps everything you copy (text, code, links, images, screenshots, colors, SVG, files), shows each clip as a rich card, and lets you reuse it in one click or drag. Clips are organized by type, by source app and into your own collections.
 
-Micropaste is not just a Win+V replacement: Win+V forgets most of what you copy and shows the rest as a plain list, while Micropaste keeps it all as a library you can browse, search and organize. It runs next to Win+V and opens with Alt+Shift+V (configurable).
+Micropaste is not just a Win+V replacement: Win+V forgets most of what you copy and shows the rest as a plain list, while Micropaste keeps it all as a library you can browse, search and organize. It opens with Win+V in place of the Windows clipboard panel; picking another shortcut in the settings gives Win+V back to Windows.
 
 - Platform: Windows 11 only. It is not built or tested for Windows 10, macOS or Linux.
 - Price: free, no account, no trial, no paid tier.
@@ -14,15 +14,17 @@ Micropaste is not just a Win+V replacement: Win+V forgets most of what you copy 
 
 ## Features
 
-- Rich cards for every kind of copy: text and code, links (page title, image and domain), images and screenshots, colors (HEX, RGB, HSL, OKLCH shown as swatches), SVG markup (rendered as the drawing), files and folders (real Windows Explorer thumbnails, groups of files fanned out).
+- Rich cards for every kind of copy: text and code, links (page title, image and domain), images and screenshots, colors (HEX, RGB, HSL, OKLCH shown as swatches), SVG markup (rendered as the drawing), files and folders (real Windows Explorer thumbnails, groups of files fanned out), GIFs, videos and audio files (film frames and covers on cards, played in the details panel).
 - Every clip remembers the app it was copied from and when.
-- Reuse in one gesture: click a card to copy it back, drag it into any app, or right-click for paste, share, save, favorite and collections.
+- Reuse in one gesture: click a card to copy it back, drag it into any app, or right-click to paste it into the app used last, save it, share it with the Windows share panel, star it or add it to collections. Arrow keys move between cards.
 - Collections: your own groups of clips shown as tabs next to the history. A clip can be in several collections, cards and tabs can be reordered by drag, and files, text or images can be dropped from other apps straight into a collection.
-- Favorites: star the clips you use all the time.
+- Favorites: star the clips you use all the time; they all appear in the Favorites tab, latest starred first.
+- Text in images: recognized locally by Windows OCR, searchable, and copyable from the image preview in the details panel.
 - Search (Ctrl+F) through everything, including link preview titles and the text recognized in images (Windows OCR).
-- Details panel with a large preview, source app, date, dimensions and size.
+- Details panel with a large preview, source app, date, dimensions and size; GIFs, videos and audio files play there.
 - Native Windows 11 design: Mica material, light and dark themes, grid or list layout.
 - Lives in the system tray, starts with Windows, closing the window only hides it.
+- Automatic updates: new versions download in the background and install from the settings in one click.
 - Tidy by itself: clips unused for 30 days are cleaned up (configurable from 1 day to forever). Favorites and clips in collections are never removed.
 
 ## Install
@@ -32,9 +34,10 @@ Micropaste is not just a Win+V replacement: Win+V forgets most of what you copy 
 
 ## Keyboard shortcuts
 
-- Alt+Shift+V: show or hide Micropaste from any app (can be changed in the settings)
+- Win+V: show or hide Micropaste from any app (can be changed in the settings)
 - Ctrl+F: search
-- Esc: clear the search, close a panel or a confirmation
+- Esc: clear the search, close a panel or a confirmation, then hide the window
+- Arrow keys: move between cards
 - Left and right arrows: browse the files of a group in the details panel
 
 ## Links
