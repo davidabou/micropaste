@@ -41,8 +41,9 @@ Micropaste recognizes what you copied and shows it the way it deserves:
 - **Links**, with a preview of the page title and image
 - **Images and screenshots**, shown in full
 - **Colors**: hex (with or without `#`), `rgb()`, `hsl()`, `oklch()` and more, displayed as a swatch
-- **SVG** markup, rendered as the actual graphic
+- **SVG** markup, rendered as the actual graphic, with its code, dimensions and size in the details
 - **Files and folders**, with their real Windows thumbnails. A group of files fans out like a hand of cards
+- **GIFs, videos and audio files**, shown as film frames and covers, and played right in the details panel
 
 Each card shows the app it was copied from and when.
 
@@ -50,7 +51,8 @@ Each card shows the app it was copied from and when.
 
 - **Click** a card to copy it back to the clipboard.
 - **Drag** a card straight into any app: text, images and files drop where you need them.
-- **Right-click** for the full menu: copy, details, favorite, add to collections, delete.
+- **Right-click** for the full menu: copy, paste into the app you used last, open a link, save as, share with the Windows share panel, details, favorite, add to collections, delete.
+- Move between cards with the **arrow keys**.
 
 ![Dragging pictures from Micropaste into an email](.github/assets/drag.gif)
 
@@ -61,26 +63,33 @@ Group clips into your own collections, shown as tabs next to your history.
 - Drag a card onto a tab to file it there, and drag cards around to reorder them.
 - Drag tabs to reorder your collections, rename them or delete them from their menu.
 - Drop files, text or pictures **from other apps** straight into a collection.
-- Clips in a collection are kept forever.
+- Clips in a collection are kept forever. Deleting a clip from the history keeps it in its collections and favorites.
 
 ![Creating a collection and adding a clip to it](.github/assets/collections.gif)
 
 ### ⭐ Favorites and search
 
-- Star the clips you use all the time, then show only your favorites in one click.
-- **Ctrl+F** searches through everything, including the titles of link previews.
+- Star the clips you use all the time: they all wait in the **Favorites** tab, latest starred first.
+- **Ctrl+F** searches through everything, including the titles of link previews and the text in images.
+
+### 🔤 Text in images
+
+Text in screenshots and pictures is recognized on your computer by Windows OCR, in the languages of your Windows profile.
+Search for it, or copy it in one click from the image's preview in the details panel.
 
 ![Searching the history](.github/assets/search.gif)
 
 ### 🔍 Details panel
 
 Open any clip to see a large preview, the source app, the date, dimensions and size.
-File groups get a carousel you can browse with the arrow keys.
+File groups get a carousel you can browse with the arrow keys, and GIFs, videos and audio files play right there.
 
 ### 🪟 Feels at home on Windows 11
 
 - Native look: Mica background, Windows 11 tooltips, smooth spring animations, light and dark themes.
+- Opens with **Win+V** from any app, in place of the Windows clipboard panel (pick another shortcut in the settings to keep it).
 - Lives quietly in the **system tray**: closing the window just hides it, and it can start with Windows.
+- Updates itself: new versions download in the background, and install from the settings in one click.
 - Grid or list layout, your choice.
 
 ### 🧹 Tidy by itself
@@ -95,15 +104,16 @@ Download `Micropaste_x.y.z_x64-setup.exe` and run it.
 > [!NOTE]
 > The installer isn't signed yet, so Windows SmartScreen may warn you. Click **More info**, then **Run anyway**.
 
-Your data is stored locally in `%APPDATA%\com.abou.micropaste`.
+Your data is stored locally in `%APPDATA%\com.abou.micropaste`. Once installed, Micropaste keeps itself up to date.
 
 ## Keyboard shortcuts
 
 | Shortcut | Action |
 | --- | --- |
-| <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>V</kbd> | Show Micropaste from anywhere, or hide it (can be changed in the settings) |
+| <kbd>Win</kbd> + <kbd>V</kbd> | Show Micropaste from anywhere, or hide it (can be changed in the settings) |
 | <kbd>Ctrl</kbd> + <kbd>F</kbd> | Search |
-| <kbd>Esc</kbd> | Clear the search, close a panel or a confirmation |
+| <kbd>Esc</kbd> | Clear the search, close a panel or a confirmation, then hide the window |
+| <kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd> | Move between cards |
 | <kbd>←</kbd> <kbd>→</kbd> | Browse the files of a group in the details panel |
 
 ## Building from source
