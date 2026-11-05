@@ -16,6 +16,7 @@ mod settings;
 mod share;
 mod source_app;
 mod updater;
+mod win_shortcut;
 mod window_icon;
 
 use std::sync::Mutex;

@@ -7,11 +7,13 @@ use tauri::plugin::TauriPlugin;
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{App, AppHandle, Emitter, Manager, PhysicalPosition, WebviewWindow, WindowEvent, Wry};
 use tauri_plugin_autostart::ManagerExt;
-use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
+use tauri_plugin_global_shortcut::ShortcutState;
 
-use crate::settings;
+use crate::{settings, win_shortcut};
 
 pub const HIDDEN_ARG: &str = "--hidden";
+
+const OPEN_LABEL: &str = "Open Micropaste";
 
 pub const LAUNCH_AT_STARTUP_EVENT: &str = "launch-at-startup-changed";
 
@@ -60,7 +62,7 @@ pub fn hide_window(app: &AppHandle) {
     }
 }
 
-fn toggle_window(app: &AppHandle) {
+pub fn toggle_window(app: &AppHandle) {
     let Some(window) = app.get_webview_window("main") else { return };
     let in_front = window.is_visible().unwrap_or(false)
         && !window.is_minimized().unwrap_or(false)
@@ -99,8 +101,9 @@ pub fn setup(app: &mut App) -> tauri::Result<()> {
         show_window(app.handle());
     }
 
+    win_shortcut::start(app.handle());
     let shortcut = settings::shortcut(app.handle());
-    if let Err(e) = app.global_shortcut().register(shortcut.as_str()) {
+    if let Err(e) = settings::register_shortcut(app.handle(), &shortcut) {
         eprintln!("[shortcut] cannot register {shortcut}: {e}");
     }
 
@@ -120,8 +123,20 @@ fn move_to_bottom_right(window: &WebviewWindow) {
     let _ = window.set_position(position);
 }
 
+/// muda can't show Win in an accelerator: the text after a tab shows like one in Windows menus.
+fn open_item(shortcut: &str) -> (String, Option<&str>) {
+    if win_shortcut::uses_win(shortcut) {
+        (format!("{OPEN_LABEL}\t{}", shortcut.replace("Super", "Win")), None)
+    } else {
+        (OPEN_LABEL.to_string(), Some(shortcut))
+    }
+}
+
 pub fn show_shortcut_in_tray(app: &AppHandle, shortcut: &str) {
-    let _ = app.state::<TrayItems>().open.set_accelerator(Some(shortcut));
+    let open = &app.state::<TrayItems>().open;
+    let (label, accelerator) = open_item(shortcut);
+    let _ = open.set_accelerator(accelerator);
+    open.set_text(label).ok();
 }
 
 pub fn show_launch_at_startup_in_tray(app: &AppHandle, enabled: bool) {
@@ -129,7 +144,8 @@ pub fn show_launch_at_startup_in_tray(app: &AppHandle, enabled: bool) {
 }
 
 fn create_tray(app: &App, shortcut: &str) -> tauri::Result<()> {
-    let open = MenuItem::with_id(app, "open", "Open Micropaste", true, Some(shortcut))?;
+    let (label, accelerator) = open_item(shortcut);
+    let open = MenuItem::with_id(app, "open", label, true, accelerator)?;
     let startup_enabled = app.autolaunch().is_enabled().unwrap_or(false);
     let startup = CheckMenuItem::with_id(app, "startup", "Launch at startup", true, startup_enabled, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Quit Micropaste", true, None::<&str>)?;

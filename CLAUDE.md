@@ -54,7 +54,8 @@ Local-first, fast, with a premium, native Windows 11 design (inspired by Supaste
 | `ocr.rs` | Text in images and single image files (Windows OCR, user profile languages): one background worker, newest first, backfills at startup; `image_text` is `NULL` until done, `''` when there's no text; searched like the content, emits `image-text-recognized` |
 | `settings.rs` | Settings stored in the `settings` table: global shortcut, history retention, launch at startup, grid/list layout |
 | `updater.rs` | Updates (`tauri-plugin-updater`): checks `latest.json` of the latest published GitHub release at startup then every 6 hours, downloads in the background, emits `update-ready`; installing runs the NSIS installer, which quits and reopens the app. Updates are signed with the updater key (`TAURI_SIGNING_PRIVATE_KEY` secret, public key in `tauri.conf.json`) |
-| `background.rs` | Tray icon, close = hide, autostart, single-instance, `--hidden`, global shortcut (Alt+Shift+V by default), window placed in the bottom right corner at launch |
+| `background.rs` | Tray icon, close = hide, autostart, single-instance, `--hidden`, global shortcut (Win+V by default, other shortcuts through `tauri-plugin-global-shortcut`), window placed in the bottom right corner at launch |
+| `win_shortcut.rs` | Shortcuts with Win (Win+V by default): Explorer owns most of them, so a low-level keyboard hook on its own thread takes them (only decides in the hook, the rest runs after it returns, or Windows lets the key through); sends an unassigned key so releasing Win doesn't open Start; Windows skips a new hook for a while, so it sends presses of its own until the hook gets one; while recording, takes any Win combination for the settings (`shortcut-recorded`) |
 | `window_icon.rs` | Sharp window icon at the right DPI |
 | `app_icon.rs` | Source app icons, file thumbnails and file type names as the Explorer shows them |
 
@@ -86,4 +87,5 @@ Local-first, fast, with a premium, native Windows 11 design (inspired by Supaste
 - Windows sometimes fails to make a file thumbnail: the file preview cache only keeps previews that worked.
 - File type names come in the Windows language while the UI is in English: accepted until the app is translated.
 - The taskbar and window icon is `icons/icon.ico` embedded in the exe by `tauri-build`, which doesn't watch it: after changing it, run `cargo clean -p Micropaste` in `src-tauri/`, or `tauri dev` keeps the old one.
+- muda (tray menu) can't show an accelerator with Win and fails the setup: `background.rs` writes those shortcuts in the item's text after a tab instead.
 - Bash heredocs mangle backslashes: use the Edit tool for code containing them. Python on Windows: write with `newline=''` (CRLF).

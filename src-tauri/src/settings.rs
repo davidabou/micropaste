@@ -6,15 +6,15 @@ use tauri::{AppHandle, Manager};
 use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
 
-use crate::background;
 use crate::db::{self, Db};
+use crate::{background, win_shortcut};
 
 const SHORTCUT_KEY: &str = "shortcut";
 const RETENTION_KEY: &str = "retention_days";
 const LAYOUT_KEY: &str = "layout";
 const LAUNCH_AT_STARTUP_KEY: &str = "launch_at_startup";
 const LAYOUTS: [&str; 2] = ["grid", "list"];
-const DEFAULT_SHORTCUT: &str = "Alt+Shift+V";
+const DEFAULT_SHORTCUT: &str = "Super+V";
 const DEFAULT_RETENTION_DAYS: u32 = 30;
 const KEEP_FOREVER: &str = "forever";
 
@@ -70,18 +70,33 @@ pub fn set_shortcut(app: &AppHandle, shortcut: &str) -> Result<(), String> {
         return Err("Add Ctrl, Alt, Shift or Win".into());
     }
     let current = self::shortcut(app);
-    let global = app.global_shortcut();
     if Shortcut::from_str(&current).is_ok_and(|current| current == new) {
         return Ok(());
     }
-    let _ = global.unregister(current.as_str());
-    if global.register(new).is_err() {
-        let _ = global.register(current.as_str());
-        return Err("Another app already uses this shortcut".into());
+    release_shortcut(app, &current);
+    if let Err(e) = register_shortcut(app, shortcut) {
+        let _ = register_shortcut(app, &current);
+        return Err(e);
     }
     write(app, SHORTCUT_KEY, shortcut)?;
     background::show_shortcut_in_tray(app, shortcut);
     Ok(())
+}
+
+/// Shortcuts with Win go through a keyboard hook: Explorer keeps most of them for itself.
+pub fn register_shortcut(app: &AppHandle, shortcut: &str) -> Result<(), String> {
+    if win_shortcut::uses_win(shortcut) {
+        return win_shortcut::set_target(Some(shortcut));
+    }
+    app.global_shortcut().register(shortcut).map_err(|_| "Another app already uses this shortcut".into())
+}
+
+fn release_shortcut(app: &AppHandle, shortcut: &str) {
+    if win_shortcut::uses_win(shortcut) {
+        let _ = win_shortcut::set_target(None);
+    } else {
+        let _ = app.global_shortcut().unregister(shortcut);
+    }
 }
 
 pub fn set_retention_days(app: &AppHandle, days: Option<u32>) -> Result<(), String> {

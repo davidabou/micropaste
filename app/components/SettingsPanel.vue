@@ -16,11 +16,15 @@ watch(() => props.open, async (open) => {
   if (open) settings.value = await invoke<Settings>('get_settings')
 }, { immediate: true })
 
-let unlisten: UnlistenFn | undefined
+const unlisteners: UnlistenFn[] = []
 onMounted(async () => {
-  unlisten = await listen<boolean>('launch-at-startup-changed', ({ payload }) => {
+  unlisteners.push(await listen<boolean>('launch-at-startup-changed', ({ payload }) => {
     if (settings.value) settings.value.launchAtStartup = payload
-  })
+  }))
+  // Windows keeps shortcuts with Win from the page: Rust records them
+  unlisteners.push(await listen<string>('shortcut-recorded', ({ payload }) => {
+    if (recording.value) saveShortcut(payload)
+  }))
 })
 
 const retentionOptions = [
@@ -114,20 +118,27 @@ function stopRecording() {
   recording.value = false
   invoke('set_recording_shortcut', { recording: false })
 }
+// Only when the focus moves within the page: Windows can take it away while Win is held
+function stopRecordingOnBlur() {
+  if (document.hasFocus()) stopRecording()
+}
 useEventListener(() => (recording.value ? window : null), 'keydown', onRecordKey, { capture: true })
 async function onRecordKey(event: KeyboardEvent) {
   event.preventDefault()
   event.stopPropagation()
-  if (MODIFIERS.includes(event.key)) return
-  const hasModifier = event.ctrlKey || event.altKey || event.shiftKey || event.metaKey
+  // Rust records shortcuts with Win; the key it sends so that Start stays closed also lands here
+  if (MODIFIERS.includes(event.key) || event.metaKey || !event.code) return
+  const hasModifier = event.ctrlKey || event.altKey || event.shiftKey
   if (event.key === 'Escape' && !hasModifier) return stopRecording()
   const shortcut = [
     event.ctrlKey && 'Ctrl',
     event.altKey && 'Alt',
     event.shiftKey && 'Shift',
-    event.metaKey && 'Super',
     event.code.replace(/^(Key|Digit)/, '')
   ].filter(Boolean).join('+')
+  saveShortcut(shortcut)
+}
+async function saveShortcut(shortcut: string) {
   stopRecording()
   try {
     await invoke('set_shortcut', { shortcut })
@@ -146,7 +157,7 @@ watch(() => props.open, (open) => {
 })
 onBeforeUnmount(() => {
   stopRecording()
-  unlisten?.()
+  unlisteners.forEach(unlisten => unlisten())
 })
 
 const rendered = ref(false)
@@ -227,7 +238,7 @@ const updateDescription = computed(() => {
                   {{ shortcutError }}
                 </p>
               </div>
-              <Button variant="filled" class="w-full" @click="recording ? stopRecording() : startRecording()" @blur="stopRecording">
+              <Button variant="filled" class="w-full" @click="recording ? stopRecording() : startRecording()" @blur="stopRecordingOnBlur">
                 <span class="truncate font-normal" :class="recording && 'opacity-60'">{{ recording ? 'Press a shortcut…' : shortcutLabel }}</span>
               </Button>
 
